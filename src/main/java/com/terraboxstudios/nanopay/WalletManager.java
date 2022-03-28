@@ -3,6 +3,7 @@ package com.terraboxstudios.nanopay;
 import com.terraboxstudios.nanopay.storage.WalletStorageProvider;
 import lombok.SneakyThrows;
 import org.apache.log4j.Logger;
+import org.jetbrains.annotations.NotNull;
 import uk.oczadly.karl.jnano.model.HexData;
 import uk.oczadly.karl.jnano.model.NanoAccount;
 import uk.oczadly.karl.jnano.model.NanoAmount;
@@ -29,7 +30,7 @@ import java.util.function.Consumer;
 
 public final class WalletManager {
 
-    private static final Logger LOGGER = Logger.getLogger("com.terraboxstudios.nanopay");
+    static final Logger LOGGER = Logger.getLogger("com.terraboxstudios.nanopay");
 
     private final WalletStorageProvider walletStorageProvider;
     private final Map<String, LocalRpcWalletAccount> walletAccounts;
@@ -37,13 +38,14 @@ public final class WalletManager {
     private final BlockProducer blockProducer;
     private final NanoAccount nanoStorageWallet;
     private final Consumer<String> paymentCompletionListener;
+    private WebsocketBlockListener websocketBlockListener;
 
-    public WalletManager(WalletStorageProvider walletStorageProvider,
-                         ScheduledExecutorService walletPruneService,
-                         NanoAccount nanoStorageWallet,
-                         RpcQueryNode rpcClient,
-                         NanoAccount nanoRepresentative,
-                         Consumer<String> paymentCompletionListener) {
+    public WalletManager(@NotNull WalletStorageProvider walletStorageProvider,
+                         @NotNull ScheduledExecutorService walletPruneService,
+                         @NotNull NanoAccount nanoStorageWallet,
+                         @NotNull RpcQueryNode rpcClient,
+                         @NotNull NanoAccount nanoRepresentative,
+                         @NotNull Consumer<String> paymentCompletionListener) {
         this.walletStorageProvider = walletStorageProvider;
         this.walletAccounts = Collections.synchronizedMap(new HashMap<>());
         this.rpcClient = rpcClient;
@@ -59,13 +61,17 @@ public final class WalletManager {
         walletPruneService.scheduleWithFixedDelay(this::pruneWallets, 1, 1, TimeUnit.MINUTES);
     }
 
+    void setWebsocketBlockListener(WebsocketBlockListener websocketBlockListener) {
+        this.websocketBlockListener = websocketBlockListener;
+    }
+
     /**
      * Creates a nano wallet, stores it in the WalletStorageProvider used by this object
      * and adds the wallet to the event loop.
-     * @return wallet address
+     * @return NANO address the payment should be sent to
      */
     @SneakyThrows
-    public String newWallet(BigDecimal requiredNano) {
+    public String newPayment(BigDecimal requiredNano) {
         LocalRpcWalletAccount walletAccount = new LocalRpcWalletAccount(WalletUtil.generateRandomKey(), rpcClient, blockProducer);
         addWallet(walletAccount, requiredNano);
         return walletAccount.getAccount().toAddress();
@@ -83,14 +89,26 @@ public final class WalletManager {
         });
     }
 
-    private void addWallet(LocalRpcWalletAccount walletAccount, BigDecimal requiredNano) {
+    private void addWallet(LocalRpcWalletAccount walletAccount, BigDecimal requiredNano) throws InterruptedException {
         this.walletStorageProvider.storeWallet(new Wallet(walletAccount.getAccount().toAddress(), walletAccount.getPrivateKey().toHexString(), Instant.now(), requiredNano));
         this.walletAccounts.put(walletAccount.getAccount().toAddress(), walletAccount);
-        //todo add wallet address to websocket block listener
+        if (websocketBlockListener != null) {
+            websocketBlockListener.addWalletFilter(walletAccount.getAccount().toAddress());
+        } else {
+            throw new IllegalStateException("Must set WebsocketBlockListener for the WalletManager");
+        }
     }
 
     private void removeWallet(Wallet wallet, boolean paymentSuccess, BigDecimal extraToRefund) {
-        //todo remove wallet address from websocket block listener
+        if (websocketBlockListener != null) {
+            try {
+                websocketBlockListener.removeWalletFilter(wallet.getAddress());
+            } catch (InterruptedException e) {
+                LOGGER.error("Couldn't remove wallet (" + wallet + ") from websocket filter.", e);
+            }
+        } else {
+            throw new IllegalStateException("Must set WebsocketBlockListener for the WalletManager");
+        }
         if (paymentSuccess) {
             LocalRpcWalletAccount walletAccount = this.walletAccounts.get(wallet.getAddress());
             try {
@@ -140,8 +158,11 @@ public final class WalletManager {
                 .forEach(wallet -> removeWallet(wallet, false, BigDecimal.ZERO));
     }
 
-    //todo have websocket listener call this method on block events
-    public void checkWallet(String address) throws WalletActionException {
+    boolean isActiveWallet(String address) {
+        return walletAccounts.containsKey(address);
+    }
+
+    void checkWallet(String address) throws WalletActionException {
         Wallet wallet = this.walletStorageProvider.getWallet(address);
         LocalRpcWalletAccount walletAccount = this.walletAccounts.get(address);
         walletAccount.receiveAll();
