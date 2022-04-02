@@ -16,12 +16,12 @@ public final class WebSocketListener {
     private Consumer<Transaction> webSocketCallback;
     private Predicate<String> activeWalletChecker;
 
-    public WebSocketListener(URI webSocketURI, boolean reconnect) {
+    WebSocketListener(URI webSocketURI, boolean reconnect) {
         this.webSocketClient = new NanoWebSocketClient(webSocketURI);
         this.webSocketClient.setObserver(new WsObserver() {
             @Override
             public void onOpen(int i) {
-                NanoPay.LOGGER.debug("WebSocket opened, " + i);
+                NanoPay.LOGGER.debug("WebSocket opened. Code: " + i);
             }
 
             @Override
@@ -35,7 +35,7 @@ public final class WebSocketListener {
 
             @Override
             public void onSocketError(Exception e) {
-                NanoPay.LOGGER.error("WebSocket error", e);
+                NanoPay.LOGGER.error("WebSocket error.", e);
                 if (reconnect) {
                     NanoPay.LOGGER.info("Attempting to reconnect to WebSocket");
                     connectWebSocket(webSocketCallback, activeWalletChecker);
@@ -44,7 +44,7 @@ public final class WebSocketListener {
         });
     }
 
-    public void connectWebSocket(Consumer<Transaction> webSocketCallback, Predicate<String> activeWalletChecker) {
+    void connectWebSocket(Consumer<Transaction> webSocketCallback, Predicate<String> activeWalletChecker) {
         this.webSocketCallback = webSocketCallback;
         this.activeWalletChecker = activeWalletChecker;
         try {
@@ -68,7 +68,7 @@ public final class WebSocketListener {
         });
     }
 
-    public void addWalletFilter(String address) {
+    void addWalletFilter(String address) {
         webSocketClient.getTopics().topicConfirmedBlocks().subscribe(new TopicConfirmation.SubArgs().filterAccounts(address).includeBlockContents());
     }
 

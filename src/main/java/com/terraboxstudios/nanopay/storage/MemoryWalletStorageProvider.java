@@ -11,7 +11,11 @@ import java.util.Optional;
 
 public class MemoryWalletStorageProvider implements WalletStorageProvider {
 
-    private final List<Wallet> wallets = new ArrayList<>();
+    private final List<Wallet> wallets;
+
+    public MemoryWalletStorageProvider() {
+        this.wallets = new ArrayList<>();
+    }
 
     @Override
     public Collection<Wallet> getAllWallets() {
@@ -33,7 +37,7 @@ public class MemoryWalletStorageProvider implements WalletStorageProvider {
         wallets.remove(wallet);
     }
 
-    private final Duration duration = Duration.ofMinutes(1);
+    private final Duration duration = Duration.ofMinutes(15);
 
     @Override
     public TemporalAmount getWalletExpirationTime() {

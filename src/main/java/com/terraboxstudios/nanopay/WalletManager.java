@@ -33,16 +33,17 @@ public final class WalletManager {
     private final RpcQueryNode rpcClient;
     private final StateBlockFactory blockFactory;
     private final NanoAccount nanoStorageWallet;
-    private final Consumer<String> paymentCompletionListener;
+    private final Consumer<String> paymentCompletionListener, walletExpireListener;
     private final WebSocketListener webSocketListener;
 
-    public WalletManager(@NotNull WalletStorageProvider walletStorageProvider,
+    WalletManager(@NotNull WalletStorageProvider walletStorageProvider,
                          @NotNull WebSocketListener webSocketListener,
                          @NotNull ScheduledExecutorService walletPruneService,
                          @NotNull NanoAccount nanoStorageWallet,
                          @NotNull RpcQueryNode rpcClient,
                          @NotNull NanoAccount nanoRepresentative,
-                         @NotNull Consumer<String> paymentCompletionListener) {
+                         @NotNull Consumer<String> paymentCompletionListener,
+                         @NotNull Consumer<String> walletExpireListener) {
         this.walletStorageProvider = walletStorageProvider;
         this.webSocketListener = webSocketListener;
         this.walletAccounts = Collections.synchronizedMap(new HashMap<>());
@@ -51,14 +52,10 @@ public final class WalletManager {
         this.blockFactory = new StateBlockFactory(nanoRepresentative, new NodeWorkGenerator(this.rpcClient));
         this.loadWallets();
         this.paymentCompletionListener = paymentCompletionListener;
+        this.walletExpireListener = walletExpireListener;
         walletPruneService.scheduleWithFixedDelay(this::pruneWallets, 1, 1, TimeUnit.MINUTES);
     }
 
-    /**
-     * Creates a nano wallet, stores it in the WalletStorageProvider used by this object
-     * and adds the wallet to the event loop.
-     * @return NANO address the payment should be sent to
-     */
     @SneakyThrows
     public String newPayment(BigDecimal requiredNano) {
         LocalRpcWalletAccount<StateBlock> walletAccount = new LocalRpcWalletAccount<>(WalletUtil.generateRandomKey(), rpcClient, blockFactory);
@@ -101,13 +98,14 @@ public final class WalletManager {
             }
             this.paymentCompletionListener.accept(wallet.getAddress());
         } else {
-//            try {
-//                if(walletAccount.getBalance().compareTo(NanoAmount.ZERO) > 0) {
+            try {
+                if(walletAccount.getBalance().compareTo(NanoAmount.ZERO) > 0) {
                     refundBalance(wallet, walletAccount);
-//                }
-//            } catch (WalletActionException e) {
-//                LOGGER.error("Couldn't get balance of receiving wallet (" + wallet + ").", e);
-//            }
+                }
+            } catch (WalletActionException e) {
+                NanoPay.LOGGER.error("Couldn't get balance of receiving wallet (" + wallet + ").", e);
+            }
+            walletExpireListener.accept(wallet.getAddress());
         }
         this.walletStorageProvider.deleteWallet(wallet);
         this.walletAccounts.remove(wallet.getAddress());
