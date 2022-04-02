@@ -37,15 +37,17 @@ public final class WalletManager {
     private final StateBlockFactory blockFactory;
     private final NanoAccount nanoStorageWallet;
     private final Consumer<String> paymentCompletionListener;
-    private WebsocketBlockListener websocketBlockListener;
+    private final WebsocketListener websocketListener;
 
     public WalletManager(@NotNull WalletStorageProvider walletStorageProvider,
+                         @NotNull WebsocketListener websocketListener,
                          @NotNull ScheduledExecutorService walletPruneService,
                          @NotNull NanoAccount nanoStorageWallet,
                          @NotNull RpcQueryNode rpcClient,
                          @NotNull NanoAccount nanoRepresentative,
                          @NotNull Consumer<String> paymentCompletionListener) {
         this.walletStorageProvider = walletStorageProvider;
+        this.websocketListener = websocketListener;
         this.walletAccounts = Collections.synchronizedMap(new HashMap<>());
         this.rpcClient = rpcClient;
         this.nanoStorageWallet = nanoStorageWallet;
@@ -53,10 +55,6 @@ public final class WalletManager {
         this.loadWallets();
         this.paymentCompletionListener = paymentCompletionListener;
         walletPruneService.scheduleWithFixedDelay(this::pruneWallets, 1, 1, TimeUnit.MINUTES);
-    }
-
-    void setWebsocketBlockListener(WebsocketBlockListener websocketBlockListener) {
-        this.websocketBlockListener = websocketBlockListener;
     }
 
     /**
@@ -74,7 +72,7 @@ public final class WalletManager {
     private void loadWallets() {
         this.walletStorageProvider.getAllWallets().forEach(wallet -> {
             LocalRpcWalletAccount<StateBlock> walletAccount = new LocalRpcWalletAccount<>(new HexData(wallet.getPrivateKey()), rpcClient, blockFactory);
-            this.walletAccounts.put(walletAccount.getAccount().toAddress(), walletAccount);
+            addWalletNoStorage(walletAccount);
             try {
                 checkWallet(walletAccount.getAccount().toAddress());
             } catch (WalletActionException e) {
@@ -85,20 +83,15 @@ public final class WalletManager {
 
     private void addWallet(LocalRpcWalletAccount<StateBlock> walletAccount, BigDecimal requiredNano) {
         this.walletStorageProvider.storeWallet(new Wallet(walletAccount.getAccount().toAddress(), walletAccount.getPrivateKey().toHexString(), Instant.now(), requiredNano));
+        addWalletNoStorage(walletAccount);
+    }
+
+    private void addWalletNoStorage(LocalRpcWalletAccount<StateBlock> walletAccount) {
         this.walletAccounts.put(walletAccount.getAccount().toAddress(), walletAccount);
-        if (websocketBlockListener != null) {
-            websocketBlockListener.addWalletFilter(walletAccount.getAccount().toAddress());
-        } else {
-            throw new IllegalStateException("Must set WebsocketBlockListener for the WalletManager");
-        }
+        this.websocketListener.addWalletFilter(walletAccount.getAccount().toAddress());
     }
 
     private void removeWallet(Wallet wallet, boolean paymentSuccess, BigDecimal extraToRefund) {
-        if (websocketBlockListener != null) {
-            websocketBlockListener.removeWalletFilter(wallet.getAddress());
-        } else {
-            throw new IllegalStateException("Must set WebsocketBlockListener for the WalletManager");
-        }
         LocalRpcWalletAccount<StateBlock> walletAccount = this.walletAccounts.get(wallet.getAddress());
         if (paymentSuccess) {
             try {
@@ -187,8 +180,7 @@ public final class WalletManager {
     void checkWallet(String address) throws WalletActionException {
         Optional<Wallet> walletOptional = this.walletStorageProvider.getWallet(address);
         if (!walletOptional.isPresent()) {
-            LOGGER.warn("Received wallet check for unrecognised address (" + address + "), removing address filter.");
-            if (websocketBlockListener != null) websocketBlockListener.removeWalletFilter(address);
+            LOGGER.warn("Received wallet check for unrecognised address (" + address + ").");
             return;
         }
         Wallet wallet = walletOptional.get();
