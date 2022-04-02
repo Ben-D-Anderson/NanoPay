@@ -10,45 +10,57 @@ import java.net.URI;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
-public final class WebsocketListener {
+public final class WebSocketListener {
 
     private final NanoWebSocketClient webSocketClient;
+    private Consumer<Transaction> webSocketCallback;
+    private Predicate<String> activeWalletChecker;
 
-    public WebsocketListener(URI websocketURI) {
-        this.webSocketClient = new NanoWebSocketClient(websocketURI);
+    public WebSocketListener(URI webSocketURI, boolean reconnect) {
+        this.webSocketClient = new NanoWebSocketClient(webSocketURI);
         this.webSocketClient.setObserver(new WsObserver() {
             @Override
             public void onOpen(int i) {
-                WalletManager.LOGGER.info("Websocket opened, " + i);
+                NanoPay.LOGGER.debug("WebSocket opened, " + i);
             }
 
             @Override
             public void onClose(int i, String s, boolean b) {
-                WalletManager.LOGGER.info("Websocket closed, " + i + ", " + s + ", " + b);
+                NanoPay.LOGGER.info("WebSocket closed. Code: " + i + ". Reason: " + s);
+                if (reconnect) {
+                    NanoPay.LOGGER.info("Attempting to reconnect to WebSocket");
+                    connectWebSocket(webSocketCallback, activeWalletChecker);
+                }
             }
 
             @Override
             public void onSocketError(Exception e) {
-                WalletManager.LOGGER.error("Websocket error", e);
+                NanoPay.LOGGER.error("WebSocket error", e);
+                if (reconnect) {
+                    NanoPay.LOGGER.info("Attempting to reconnect to WebSocket");
+                    connectWebSocket(webSocketCallback, activeWalletChecker);
+                }
             }
         });
     }
 
-    public void connectWebsocket(Consumer<Transaction> websocketCallback, Predicate<String> activeWalletChecker) {
+    public void connectWebSocket(Consumer<Transaction> webSocketCallback, Predicate<String> activeWalletChecker) {
+        this.webSocketCallback = webSocketCallback;
+        this.activeWalletChecker = activeWalletChecker;
         try {
             if (!webSocketClient.connect()) {
-                WalletManager.LOGGER.error("Could not connect to WebSocket");
+                NanoPay.LOGGER.error("Could not connect to WebSocket");
                 return;
             }
         } catch (InterruptedException e) {
-            WalletManager.LOGGER.error("Exception occurred connecting to websocket", e);
+            NanoPay.LOGGER.error("Exception occurred connecting to WebSocket", e);
             return;
         }
         webSocketClient.getTopics().topicConfirmedBlocks().registerListener((message, context) -> {
             if (message.getBlock().getType() != BlockType.STATE && message.getBlock().getType() != BlockType.SEND) return;
             String toAddress = message.getBlock().toJsonObject().get("link_as_account").getAsString();
             if (!activeWalletChecker.test(toAddress)) return;
-            websocketCallback.accept(new Transaction(
+            webSocketCallback.accept(new Transaction(
                     message.getAccount(),
                     NanoAccount.parse(toAddress),
                     message.getAmount()
