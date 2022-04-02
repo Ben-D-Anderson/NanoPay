@@ -8,16 +8,15 @@ import uk.oczadly.karl.jnano.model.HexData;
 import uk.oczadly.karl.jnano.model.NanoAccount;
 import uk.oczadly.karl.jnano.model.NanoAmount;
 import uk.oczadly.karl.jnano.model.block.BlockType;
+import uk.oczadly.karl.jnano.model.block.StateBlock;
+import uk.oczadly.karl.jnano.model.block.factory.StateBlockFactory;
 import uk.oczadly.karl.jnano.rpc.RpcQueryNode;
 import uk.oczadly.karl.jnano.rpc.exception.RpcException;
 import uk.oczadly.karl.jnano.rpc.request.node.RequestAccountHistory;
 import uk.oczadly.karl.jnano.rpc.response.ResponseAccountHistory;
-import uk.oczadly.karl.jnano.rpc.util.wallet.LocalRpcWalletAccount;
-import uk.oczadly.karl.jnano.rpc.util.wallet.WalletActionException;
+import uk.oczadly.karl.jnano.util.wallet.WalletActionException;
 import uk.oczadly.karl.jnano.util.WalletUtil;
-import uk.oczadly.karl.jnano.util.blockproducer.BlockProducer;
-import uk.oczadly.karl.jnano.util.blockproducer.BlockProducerSpecification;
-import uk.oczadly.karl.jnano.util.blockproducer.StateBlockProducer;
+import uk.oczadly.karl.jnano.util.wallet.LocalRpcWalletAccount;
 import uk.oczadly.karl.jnano.util.workgen.NodeWorkGenerator;
 
 import java.io.IOException;
@@ -30,12 +29,12 @@ import java.util.function.Consumer;
 
 public final class WalletManager {
 
-    static final Logger LOGGER = Logger.getLogger("com.terraboxstudios.nanopay");
+    static final Logger LOGGER = Logger.getRootLogger();//Logger.getLogger("com.terraboxstudios.nanopay");
 
     private final WalletStorageProvider walletStorageProvider;
-    private final Map<String, LocalRpcWalletAccount> walletAccounts;
+    private final Map<String, LocalRpcWalletAccount<StateBlock>> walletAccounts;
     private final RpcQueryNode rpcClient;
-    private final BlockProducer blockProducer;
+    private final StateBlockFactory blockFactory;
     private final NanoAccount nanoStorageWallet;
     private final Consumer<String> paymentCompletionListener;
     private WebsocketBlockListener websocketBlockListener;
@@ -50,12 +49,7 @@ public final class WalletManager {
         this.walletAccounts = Collections.synchronizedMap(new HashMap<>());
         this.rpcClient = rpcClient;
         this.nanoStorageWallet = nanoStorageWallet;
-        this.blockProducer = new StateBlockProducer(
-                BlockProducerSpecification.builder()
-                        .defaultRepresentative(nanoRepresentative)
-                        .workGenerator(new NodeWorkGenerator(this.rpcClient))
-                        .build()
-        );
+        this.blockFactory = new StateBlockFactory(nanoRepresentative, new NodeWorkGenerator(this.rpcClient));
         this.loadWallets();
         this.paymentCompletionListener = paymentCompletionListener;
         walletPruneService.scheduleWithFixedDelay(this::pruneWallets, 1, 1, TimeUnit.MINUTES);
@@ -72,14 +66,14 @@ public final class WalletManager {
      */
     @SneakyThrows
     public String newPayment(BigDecimal requiredNano) {
-        LocalRpcWalletAccount walletAccount = new LocalRpcWalletAccount(WalletUtil.generateRandomKey(), rpcClient, blockProducer);
+        LocalRpcWalletAccount<StateBlock> walletAccount = new LocalRpcWalletAccount<>(WalletUtil.generateRandomKey(), rpcClient, blockFactory);
         addWallet(walletAccount, requiredNano);
         return walletAccount.getAccount().toAddress();
     }
 
     private void loadWallets() {
         this.walletStorageProvider.getAllWallets().forEach(wallet -> {
-            LocalRpcWalletAccount walletAccount = new LocalRpcWalletAccount(new HexData(wallet.getPrivateKey()), rpcClient, blockProducer);
+            LocalRpcWalletAccount<StateBlock> walletAccount = new LocalRpcWalletAccount<>(new HexData(wallet.getPrivateKey()), rpcClient, blockFactory);
             this.walletAccounts.put(walletAccount.getAccount().toAddress(), walletAccount);
             try {
                 checkWallet(walletAccount.getAccount().toAddress());
@@ -89,7 +83,7 @@ public final class WalletManager {
         });
     }
 
-    private void addWallet(LocalRpcWalletAccount walletAccount, BigDecimal requiredNano) throws InterruptedException {
+    private void addWallet(LocalRpcWalletAccount<StateBlock> walletAccount, BigDecimal requiredNano) {
         this.walletStorageProvider.storeWallet(new Wallet(walletAccount.getAccount().toAddress(), walletAccount.getPrivateKey().toHexString(), Instant.now(), requiredNano));
         this.walletAccounts.put(walletAccount.getAccount().toAddress(), walletAccount);
         if (websocketBlockListener != null) {
@@ -101,16 +95,12 @@ public final class WalletManager {
 
     private void removeWallet(Wallet wallet, boolean paymentSuccess, BigDecimal extraToRefund) {
         if (websocketBlockListener != null) {
-            try {
-                websocketBlockListener.removeWalletFilter(wallet.getAddress());
-            } catch (InterruptedException e) {
-                LOGGER.error("Couldn't remove wallet (" + wallet + ") from websocket filter.", e);
-            }
+            websocketBlockListener.removeWalletFilter(wallet.getAddress());
         } else {
             throw new IllegalStateException("Must set WebsocketBlockListener for the WalletManager");
         }
+        LocalRpcWalletAccount<StateBlock> walletAccount = this.walletAccounts.get(wallet.getAddress());
         if (paymentSuccess) {
-            LocalRpcWalletAccount walletAccount = this.walletAccounts.get(wallet.getAddress());
             try {
                 walletAccount.send(this.nanoStorageWallet, NanoAmount.valueOfNano(wallet.getRequiredNano()));
             } catch (WalletActionException e) {
@@ -120,12 +110,20 @@ public final class WalletManager {
                 refundBalance(wallet, walletAccount, extraToRefund);
             }
             this.paymentCompletionListener.accept(wallet.getAddress());
+        } else {
+//            try {
+//                if(walletAccount.getBalance().compareTo(NanoAmount.ZERO) > 0) {
+                    refundBalance(wallet, walletAccount);
+//                }
+//            } catch (WalletActionException e) {
+//                LOGGER.error("Couldn't get balance of receiving wallet (" + wallet + ").", e);
+//            }
         }
         this.walletStorageProvider.deleteWallet(wallet);
         this.walletAccounts.remove(wallet.getAddress());
     }
 
-    private void refundBalance(Wallet wallet, LocalRpcWalletAccount walletAccount, BigDecimal extraToRefund) {
+    private void refundBalance(Wallet wallet, LocalRpcWalletAccount<StateBlock> walletAccount, BigDecimal extraToRefund) {
         try {
             NanoAccount mostReceiveAccount = getMostReceiveAccount(walletAccount.getAccount())
                     .orElseThrow(() -> new WalletActionException("Couldn't find last NANO sender"));
@@ -136,6 +134,30 @@ public final class WalletManager {
                 walletAccount.sendAll(nanoStorageWallet);
             } catch (WalletActionException ex) {
                 LOGGER.error("Couldn't send extra NANO from receiving wallet (" + wallet + ") to storage wallet (" + this.nanoStorageWallet + ") after failing to refund.", e);
+            }
+        }
+    }
+
+    private void refundBalance(Wallet wallet, LocalRpcWalletAccount<StateBlock> walletAccount) {
+        try {
+            RequestAccountHistory requestAccountHistory = new RequestAccountHistory(walletAccount.getAccount().toAddress());
+            ResponseAccountHistory responseAccountHistory = rpcClient.processRequest(requestAccountHistory);
+            responseAccountHistory.getHistory()
+                    .stream()
+                    .filter(blockInfo -> blockInfo.getType() == BlockType.RECEIVE)
+                    .forEach(blockInfo -> {
+                        try {
+                            walletAccount.send(blockInfo.getAccount(), blockInfo.getAmount());
+                        } catch (WalletActionException e) {
+                            LOGGER.error("Couldn't refund NANO to sender of NANO to wallet (" + wallet + ").", e);
+                        }
+                    });
+        } catch (RpcException | IOException e) {
+            LOGGER.error("Couldn't refund NANO to senders of NANO to wallet (" + wallet + ").", e);
+            try {
+                walletAccount.sendAll(nanoStorageWallet);
+            } catch (WalletActionException ex) {
+                LOGGER.error("Couldn't send unwanted NANO from receiving wallet (" + wallet + ") to storage wallet (" + this.nanoStorageWallet + ") after failing to refund.", e);
             }
         }
     }
@@ -163,8 +185,14 @@ public final class WalletManager {
     }
 
     void checkWallet(String address) throws WalletActionException {
-        Wallet wallet = this.walletStorageProvider.getWallet(address);
-        LocalRpcWalletAccount walletAccount = this.walletAccounts.get(address);
+        Optional<Wallet> walletOptional = this.walletStorageProvider.getWallet(address);
+        if (!walletOptional.isPresent()) {
+            LOGGER.warn("Received wallet check for unrecognised address (" + address + "), removing address filter.");
+            if (websocketBlockListener != null) websocketBlockListener.removeWalletFilter(address);
+            return;
+        }
+        Wallet wallet = walletOptional.get();
+        LocalRpcWalletAccount<StateBlock> walletAccount = this.walletAccounts.get(address);
         walletAccount.receiveAll();
         BigDecimal extraToRefund = walletAccount.getBalance().getAsNano().subtract(wallet.getRequiredNano());
         if (extraToRefund.compareTo(BigDecimal.ZERO) >= 0) {

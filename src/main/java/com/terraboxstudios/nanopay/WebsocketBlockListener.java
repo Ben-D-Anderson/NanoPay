@@ -1,9 +1,6 @@
 package com.terraboxstudios.nanopay;
 
-import lombok.SneakyThrows;
-import uk.oczadly.karl.jnano.model.NanoAccount;
-import uk.oczadly.karl.jnano.rpc.util.wallet.WalletActionException;
-import uk.oczadly.karl.jnano.util.WalletUtil;
+import uk.oczadly.karl.jnano.util.wallet.WalletActionException;
 import uk.oczadly.karl.jnano.websocket.NanoWebSocketClient;
 import uk.oczadly.karl.jnano.websocket.topic.TopicConfirmation;
 
@@ -20,14 +17,19 @@ public final class WebsocketBlockListener {
         this.websocketURI = websocketURI;
     }
 
-    @SneakyThrows
     public void connectWebsocket() {
         webSocketClient = new NanoWebSocketClient(websocketURI);
-        if (!webSocketClient.connect()) {
-            WalletManager.LOGGER.error("Could not connect to WebSocket (" + websocketURI.toString() + ")");
+        try {
+            if (!webSocketClient.connect()) {
+                WalletManager.LOGGER.error("Could not connect to WebSocket (" + websocketURI.toString() + ")");
+                return;
+            }
+        } catch (InterruptedException e) {
+            WalletManager.LOGGER.error("Exception occurred connecting to websocket", e);
             return;
         }
         webSocketClient.getTopics().topicConfirmedBlocks().registerListener((message, context) -> {
+            WalletManager.LOGGER.info("Checking wallet (" + message.getAccount() + ")");
             if (this.walletManager.isActiveWallet(message.getAccount().toAddress())) {
                 try {
                     this.walletManager.checkWallet(message.getAccount().toAddress());
@@ -36,15 +38,16 @@ public final class WebsocketBlockListener {
                 }
             }
         });
-        webSocketClient.getTopics().topicConfirmedBlocks().subscribeBlocking(new TopicConfirmation.SubArgs().filterAccounts(NanoAccount.fromPrivateKey(WalletUtil.generateRandomKey()).toAddress()));
+        webSocketClient.getTopics().topicConfirmedBlocks().subscribe(new TopicConfirmation.SubArgs());
     }
 
-    public void addWalletFilter(String address) throws InterruptedException {
-        webSocketClient.getTopics().topicConfirmedBlocks().updateBlocking(new TopicConfirmation.UpdateArgs().addAccountsFilter(address));
+    //todo fix websocket stuff - I am not getting callbacks for block confirmations
+    public void addWalletFilter(String address) {
+        webSocketClient.getTopics().topicConfirmedBlocks().update(new TopicConfirmation.UpdateArgs().addAccountsFilter(address));
     }
 
-    public void removeWalletFilter(String address) throws InterruptedException {
-        webSocketClient.getTopics().topicConfirmedBlocks().updateBlocking(new TopicConfirmation.UpdateArgs().removeAccountsFilter(address));
+    public void removeWalletFilter(String address) {
+        webSocketClient.getTopics().topicConfirmedBlocks().update(new TopicConfirmation.UpdateArgs().removeAccountsFilter(address));
     }
 
 }
