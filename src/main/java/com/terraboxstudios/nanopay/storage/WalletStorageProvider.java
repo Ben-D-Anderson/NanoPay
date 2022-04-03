@@ -1,21 +1,12 @@
 package com.terraboxstudios.nanopay.storage;
 
-import com.terraboxstudios.nanopay.Wallet;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
-import java.time.temporal.TemporalAmount;
-import java.util.Collection;
-import java.util.Optional;
+@AllArgsConstructor
+@Getter
+public class WalletStorageProvider {
 
-public interface WalletStorageProvider {
-
-    Collection<Wallet> getAllWallets();
-
-    Optional<Wallet> getWallet(String address);
-
-    void storeWallet(Wallet wallet);
-
-    void deleteWallet(Wallet wallet);
-
-    TemporalAmount getWalletExpirationTime();
+    private final WalletStorage activeWalletStorage, deadWalletStorage;
 
 }

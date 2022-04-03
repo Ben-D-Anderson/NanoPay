@@ -4,17 +4,16 @@ import com.terraboxstudios.nanopay.Wallet;
 
 import java.time.Duration;
 import java.time.temporal.TemporalAmount;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
-public class MemoryWalletStorageProvider implements WalletStorageProvider {
+public class MemoryWalletStorage implements WalletStorage {
 
     private final List<Wallet> wallets;
+    private final Duration duration;
 
-    public MemoryWalletStorageProvider() {
-        this.wallets = new ArrayList<>();
+    public MemoryWalletStorage(Duration walletExpiryTime) {
+        this.wallets = Collections.synchronizedList(new ArrayList<>());
+        this.duration = walletExpiryTime;
     }
 
     @Override
@@ -36,8 +35,6 @@ public class MemoryWalletStorageProvider implements WalletStorageProvider {
     public void deleteWallet(Wallet wallet) {
         wallets.remove(wallet);
     }
-
-    private final Duration duration = Duration.ofMinutes(15);
 
     @Override
     public TemporalAmount getWalletExpirationTime() {
