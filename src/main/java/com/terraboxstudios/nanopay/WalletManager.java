@@ -20,6 +20,7 @@ import uk.oczadly.karl.jnano.util.workgen.NodeWorkGenerator;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -27,7 +28,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public final class WalletManager {
 
@@ -38,6 +38,7 @@ public final class WalletManager {
     private final NanoAccount nanoStorageWallet;
     private final Consumer<String> paymentCompletionListener, walletExpireListener;
     private final WebSocketListener webSocketListener;
+    private final Clock clock;
 
     WalletManager(@NotNull WalletStorageProvider walletStorageProvider,
                   @NotNull WebSocketListener webSocketListener,
@@ -49,7 +50,8 @@ public final class WalletManager {
                   @NotNull Consumer<String> paymentCompletionListener,
                   @NotNull Consumer<String> walletExpireListener,
                   @NotNull Duration walletPruneDelay,
-                  @NotNull Duration refundWalletDelay) {
+                  @NotNull Duration refundWalletDelay,
+                  @NotNull Clock clock) {
         this.walletStorageProvider = walletStorageProvider;
         this.webSocketListener = webSocketListener;
         this.walletAccounts = Collections.synchronizedMap(new HashMap<>());
@@ -59,6 +61,7 @@ public final class WalletManager {
         this.loadWallets();
         this.paymentCompletionListener = paymentCompletionListener;
         this.walletExpireListener = walletExpireListener;
+        this.clock = clock;
         walletPruneService.scheduleWithFixedDelay(this::pruneWallets, walletPruneDelay.getSeconds(), walletPruneDelay.getSeconds(), TimeUnit.SECONDS);
         refundDeadWalletService.scheduleWithFixedDelay(this::refundDeadWallets, refundWalletDelay.getSeconds(), refundWalletDelay.getSeconds(), TimeUnit.SECONDS);
     }
@@ -83,7 +86,8 @@ public final class WalletManager {
     }
 
     private void addWallet(LocalRpcWalletAccount<StateBlock> walletAccount, BigDecimal requiredNano) {
-        this.walletStorageProvider.getActiveWalletStorage().storeWallet(new Wallet(walletAccount.getAccount().toAddress(), walletAccount.getPrivateKey().toHexString(), Instant.now(), requiredNano));
+        Wallet wallet = new Wallet(walletAccount.getAccount().toAddress(), walletAccount.getPrivateKey().toHexString(), Instant.now(clock), requiredNano);
+        this.walletStorageProvider.getActiveWalletStorage().storeWallet(wallet);
         addWalletNoStorage(walletAccount);
     }
 
@@ -198,11 +202,15 @@ public final class WalletManager {
     }
 
     private void pruneWallets() {
-        Instant currentTime = Instant.now();
-        Stream.of(this.walletStorageProvider.getActiveWalletStorage(), this.walletStorageProvider.getDeadWalletStorage())
-                .flatMap(walletStorage -> walletStorage.getAllWallets().stream())
+        Instant currentTime = Instant.now(clock);
+        this.walletStorageProvider.getActiveWalletStorage().getAllWallets()
+                .stream()
                 .filter(wallet -> wallet.getCreationTime().isBefore(currentTime.minus(this.walletStorageProvider.getActiveWalletStorage().getWalletExpirationTime())))
                 .forEach(wallet -> removeWallet(wallet, false, false));
+        this.walletStorageProvider.getDeadWalletStorage().getAllWallets()
+                .stream()
+                .filter(wallet -> wallet.getCreationTime().isBefore(currentTime.minus(this.walletStorageProvider.getActiveWalletStorage().getWalletExpirationTime())))
+                .forEach(this.walletStorageProvider.getDeadWalletStorage()::deleteWallet);
     }
 
     boolean isActiveWallet(String address) {

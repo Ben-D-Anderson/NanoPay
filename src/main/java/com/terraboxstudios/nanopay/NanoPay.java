@@ -12,6 +12,7 @@ import uk.oczadly.karl.jnano.util.wallet.WalletActionException;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URL;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -36,7 +37,8 @@ public class NanoPay {
                 builder.paymentSuccessListener,
                 builder.paymentFailListener,
                 builder.walletPruneDelay,
-                builder.refundWalletDelay
+                builder.refundWalletDelay,
+                builder.clock
         );
 
         webSocketListener.connectWebSocket(transaction -> {
@@ -75,6 +77,7 @@ public class NanoPay {
         private Consumer<String> paymentFailListener = walletAddress -> {};
         private boolean webSocketReconnect = false;
         private Duration walletPruneDelay = Duration.ofMinutes(1), refundWalletDelay = Duration.ofMinutes(5);
+        private Clock clock = Clock.systemDefaultZone();
 
         /**
          * @param storageWallet Wallet for the funds of a payment to be transferred to, after the payment has been processed and completed.
@@ -102,6 +105,11 @@ public class NanoPay {
         @SneakyThrows
         public Builder setRpcAddress(String rpcAddress) {
             this.rpcAddress = new URL(rpcAddress);
+            return this;
+        }
+
+        public Builder setClock(Clock clock) {
+            this.clock = clock;
             return this;
         }
 
