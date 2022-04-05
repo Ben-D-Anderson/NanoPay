@@ -29,26 +29,26 @@ public class NanoPay {
         walletManager = new WalletManager(
                 builder.walletStorageProvider,
                 webSocketListener,
-                builder.walletPruneService,
-                builder.refundDeadWalletService,
                 builder.storageWallet,
                 new RpcQueryNode(builder.rpcAddress),
                 builder.representativeWallet,
                 builder.paymentSuccessListener,
                 builder.paymentFailListener,
-                builder.walletPruneDelay,
-                builder.refundWalletDelay,
                 builder.clock
         );
+        walletManager.loadWallets();
+        if (builder.walletPruningServiceEnabled)
+            walletManager.startPruningService(builder.walletPruningService, builder.walletPruneDelay);
+        if (builder.refundServiceEnabled)
+            walletManager.startRefundService(builder.refundWalletService, builder.refundWalletDelay);
 
         webSocketListener.connectWebSocket(transaction -> {
-            NanoPay.LOGGER.debug("Wallet " + transaction.getReceiver() + " received " + transaction.getAmount().toNanoString() + " NANO");
             try {
                 walletManager.checkWallet(transaction.getReceiver().toAddress());
             } catch (WalletActionException e) {
                 NanoPay.LOGGER.error("Exception occurred checking wallet (" + transaction.getReceiver().toAddress() + ")", e);
             }
-        }, walletManager::isActiveWallet);
+        });
     }
 
     /**
@@ -73,14 +73,14 @@ public class NanoPay {
         private String webSocketAddress = "wss://socket.nanos.cc/";
         private NanoAccount representativeWallet = NanoAccount.parseAddress("nano_1natrium1o3z5519ifou7xii8crpxpk8y65qmkih8e8bpsjri651oza8imdd");
         private WalletStorageProvider walletStorageProvider;
-        private ScheduledExecutorService walletPruneService, refundDeadWalletService;
+        private ScheduledExecutorService walletPruningService, refundWalletService;
         private Consumer<String> paymentFailListener = walletAddress -> {};
-        private boolean webSocketReconnect = false;
+        private boolean webSocketReconnect = false, walletPruningServiceEnabled = true, refundServiceEnabled = true;
         private Duration walletPruneDelay = Duration.ofMinutes(1), refundWalletDelay = Duration.ofMinutes(5);
         private Clock clock = Clock.systemDefaultZone();
 
         /**
-         * @param storageWallet Wallet for the funds of a payment to be transferred to, after the payment has been processed and completed.
+         * @param storageWallet Wallet address for the funds of a payment to be transferred to, after the payment has been processed and completed.
          * @param paymentSuccessListener Called when a payment is processed and completed, the argument to the consumer
          *                              is the address of the NANO wallet that received the funds for the payment - can be used
          *                              as a unique identifier for the payment (as wallets are not re-used).
@@ -90,6 +90,25 @@ public class NanoPay {
             this.storageWallet = NanoAccount.parseAddress(storageWallet);
             this.paymentSuccessListener = paymentSuccessListener;
             this.rpcAddress = new URL("https://proxy.nanos.cc/proxy");
+        }
+
+        /**
+         * Disables the wallet pruning service. The wallet pruning service is the service that deletes wallets out of
+         * active storage when they have expired and moves them to dead storage, and deletes them from dead storage
+         * when they expire.
+         */
+        public Builder disableWalletPruningService() {
+            this.walletPruningServiceEnabled = false;
+            return this;
+        }
+
+        /**
+         * Disables the dead wallet refund service. The refund service will refund all payments sent to dead
+         * wallets whilst they are stored in the dead wallet storage.
+         */
+        public Builder disableRefundService() {
+            this.refundServiceEnabled = false;
+            return this;
         }
 
         public Builder setRepresentativeWallet(String representativeWallet) {
@@ -133,17 +152,17 @@ public class NanoPay {
             return this;
         }
 
-        public Builder setWalletPruneService(ScheduledExecutorService walletPruneService) {
-            this.walletPruneService = walletPruneService;
+        public Builder setWalletPruningService(ScheduledExecutorService walletPruningService) {
+            this.walletPruningService = walletPruningService;
             return this;
         }
 
-        public Builder setRefundDeadWalletService(ScheduledExecutorService refundDeadWalletService) {
-            this.refundDeadWalletService = refundDeadWalletService;
+        public Builder setRefundWalletService(ScheduledExecutorService refundWalletService) {
+            this.refundWalletService = refundWalletService;
             return this;
         }
 
-        public Builder setWalletPruneDelay(Duration walletPruneDelay) {
+        public Builder setWalletPruningDelay(Duration walletPruneDelay) {
             this.walletPruneDelay = walletPruneDelay;
             return this;
         }
@@ -155,13 +174,14 @@ public class NanoPay {
 
         public NanoPay build() {
             if (walletStorageProvider == null) walletStorageProvider = new WalletStorageProvider(new MemoryWalletStorage(Duration.ofMinutes(15)), new MemoryWalletStorage(Duration.ofMinutes(60)));
-            if (walletPruneService == null && refundDeadWalletService == null) {
-                walletPruneService = Executors.newSingleThreadScheduledExecutor();
-                refundDeadWalletService = walletPruneService;
-            } else if (walletPruneService == null) {
-                walletPruneService = Executors.newSingleThreadScheduledExecutor();
-            } else if (refundDeadWalletService == null) {
-                refundDeadWalletService = Executors.newSingleThreadScheduledExecutor();
+            if ((walletPruningServiceEnabled || refundServiceEnabled) && (walletPruningService == null || refundWalletService == null)) {
+                ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+                if (walletPruningService == null && walletPruningServiceEnabled) {
+                    walletPruningService = scheduledExecutorService;
+                }
+                if (refundWalletService == null && refundServiceEnabled) {
+                    refundWalletService = scheduledExecutorService;
+                }
             }
             return new NanoPay(this);
         }
