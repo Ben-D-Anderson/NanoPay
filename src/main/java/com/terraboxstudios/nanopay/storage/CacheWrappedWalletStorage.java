@@ -1,6 +1,6 @@
 package com.terraboxstudios.nanopay.storage;
 
-import com.terraboxstudios.nanopay.Wallet;
+import com.terraboxstudios.nanopay.wallet.Wallet;
 
 import java.time.Duration;
 import java.util.Collection;

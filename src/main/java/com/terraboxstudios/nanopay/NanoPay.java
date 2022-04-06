@@ -20,7 +20,7 @@ import java.util.function.Consumer;
 
 public class NanoPay {
 
-    static final Logger LOGGER = LoggerFactory.getLogger(NanoPay.class);
+    public static final Logger LOGGER = LoggerFactory.getLogger(NanoPay.class);
     private final WalletManager walletManager;
 
     private NanoPay(NanoPay.Builder builder) {
@@ -43,6 +43,7 @@ public class NanoPay {
             walletManager.startRefundService(builder.refundWalletService, builder.refundWalletDelay);
 
         webSocketListener.connectWebSocket(transaction -> {
+            NanoPay.LOGGER.debug("Listened to transaction. " + transaction);
             try {
                 walletManager.checkWallet(transaction.getReceiver().toAddress());
             } catch (WalletActionException e) {
