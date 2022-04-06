@@ -1,38 +1,41 @@
 package com.terraboxstudios.nanopay.storage;
 
-import com.terraboxstudios.nanopay.Wallet;
+import com.terraboxstudios.nanopay.wallet.Wallet;
 
 import java.time.Duration;
 import java.util.*;
 
+/**
+ * All operations have a O(1) time complexity as this class internally uses a HashMap (with the key being the wallet address).
+ */
 public class MemoryWalletStorage implements WalletStorage {
 
-    private final Set<Wallet> wallets;
+    private final Map<String, Wallet> wallets;
     private final Duration duration;
 
     public MemoryWalletStorage(Duration walletExpiryTime) {
-        this.wallets = Collections.synchronizedSet(new HashSet<>());
+        this.wallets = Collections.synchronizedMap(new HashMap<>());
         this.duration = walletExpiryTime;
     }
 
     @Override
     public Collection<Wallet> getAllWallets() {
-        return Collections.unmodifiableSet(wallets);
+        return wallets.values();
     }
 
     @Override
     public Optional<Wallet> findWalletByAddress(String address) {
-        return wallets.stream().filter(wallet -> wallet.getAddress().equals(address)).findFirst();
+        return Optional.ofNullable(wallets.get(address));
     }
 
     @Override
     public void saveWallet(Wallet wallet) {
-        wallets.add(wallet);
+        wallets.put(wallet.getAddress(), wallet);
     }
 
     @Override
     public void deleteWallet(Wallet wallet) {
-        wallets.remove(wallet);
+        wallets.remove(wallet.getAddress());
     }
 
     @Override
