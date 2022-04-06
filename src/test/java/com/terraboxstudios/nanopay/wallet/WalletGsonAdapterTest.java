@@ -2,7 +2,7 @@ package com.terraboxstudios.nanopay.wallet;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.terraboxstudios.nanopay.SecureRandomUtil;
+import com.terraboxstudios.nanopay.util.SecureRandomUtil;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import uk.oczadly.karl.jnano.model.HexData;

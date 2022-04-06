@@ -1,6 +1,7 @@
 package com.terraboxstudios.nanopay;
 
 import com.terraboxstudios.nanopay.storage.WalletStorageProvider;
+import com.terraboxstudios.nanopay.util.SecureRandomUtil;
 import com.terraboxstudios.nanopay.wallet.Wallet;
 import lombok.SneakyThrows;
 import org.jetbrains.annotations.NotNull;

@@ -1,4 +1,4 @@
-package com.terraboxstudios.nanopay;
+package com.terraboxstudios.nanopay.util;
 
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
