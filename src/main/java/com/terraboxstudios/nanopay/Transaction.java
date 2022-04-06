@@ -1,19 +1,13 @@
 package com.terraboxstudios.nanopay;
 
-import lombok.AllArgsConstructor;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.ToString;
+import lombok.*;
 import uk.oczadly.karl.jnano.model.NanoAccount;
 import uk.oczadly.karl.jnano.model.NanoAmount;
 
-@AllArgsConstructor
-@Getter
-@EqualsAndHashCode
-@ToString
-final class Transaction {
+@Value
+class Transaction {
 
-    private final NanoAccount sender, receiver;
-    private final NanoAmount amount;
+    NanoAccount sender, receiver;
+    NanoAmount amount;
 
 }
