@@ -1,7 +1,6 @@
 package com.terraboxstudios.nanopay;
 
 import uk.oczadly.karl.jnano.model.NanoAccount;
-import uk.oczadly.karl.jnano.model.block.BlockType;
 import uk.oczadly.karl.jnano.websocket.NanoWebSocketClient;
 import uk.oczadly.karl.jnano.websocket.WsObserver;
 import uk.oczadly.karl.jnano.websocket.topic.TopicConfirmation;
@@ -43,8 +42,7 @@ public final class WebSocketListener {
     }
 
     void connectWebSocket(Consumer<Transaction> webSocketCallback) {
-        if (this.webSocketCallback == null)
-            this.webSocketCallback = webSocketCallback;
+        this.webSocketCallback = webSocketCallback;
         try {
             if (!webSocketClient.connect()) {
                 NanoPay.LOGGER.error("Could not connect to WebSocket");
@@ -55,7 +53,7 @@ public final class WebSocketListener {
             return;
         }
         webSocketClient.getTopics().topicConfirmedBlocks().registerListener((message, context) -> {
-            if (message.getBlock().getType() != BlockType.STATE && message.getBlock().getType() != BlockType.SEND) return;
+            if (!message.getBlock().toJsonObject().get("subtype").getAsString().equalsIgnoreCase("send")) return;
             String toAddress = message.getBlock().toJsonObject().get("link_as_account").getAsString();
             webSocketCallback.accept(new Transaction(
                     message.getAccount(),
