@@ -39,7 +39,7 @@ public class SingleFileWalletStorage implements WalletStorage {
         this.semaphore = new Semaphore(1);
 
         if (!Files.exists(this.storageFile)) {
-            Files.createFile(this.storageFile);
+            Files.write(this.storageFile, "[]".getBytes(StandardCharsets.UTF_8));
         }
         if (Files.isDirectory(this.storageFile)) {
             throw new IllegalArgumentException("Storage file path provided resolved to a folder, not a file.");
@@ -47,6 +47,7 @@ public class SingleFileWalletStorage implements WalletStorage {
 
         GsonBuilder builder = new GsonBuilder();
         builder.registerTypeAdapter(Wallet.class, new WalletGsonAdapter());
+        builder.setPrettyPrinting();
         this.gson = builder.create();
     }
 

@@ -51,6 +51,7 @@ public class MultipleFileWalletStorage implements WalletStorage {
 
         GsonBuilder builder = new GsonBuilder();
         builder.registerTypeAdapter(Wallet.class, new WalletGsonAdapter());
+        builder.setPrettyPrinting();
         this.gson = builder.create();
     }
 
@@ -91,7 +92,7 @@ public class MultipleFileWalletStorage implements WalletStorage {
     public void saveWallet(Wallet wallet) {
         Path walletPath = storageFolder.resolve(wallet.getAddress());
         try {
-            Files.write(walletPath, gson.toJson(wallet, WalletGsonAdapter.class).getBytes(UTF_8));
+            Files.write(walletPath, gson.toJson(wallet, Wallet.class).getBytes(UTF_8));
         } catch (IOException e) {
             NanoPay.LOGGER.error("Could not save wallet file in wallet storage folder", e);
         }
