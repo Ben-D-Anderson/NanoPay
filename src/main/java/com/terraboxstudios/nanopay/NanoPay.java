@@ -2,6 +2,7 @@ package com.terraboxstudios.nanopay;
 
 import com.terraboxstudios.nanopay.storage.MemoryWalletStorage;
 import com.terraboxstudios.nanopay.storage.WalletStorageProvider;
+import com.terraboxstudios.nanopay.wallet.Wallet;
 import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,11 +15,12 @@ import java.net.URI;
 import java.net.URL;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 
-public class NanoPay {
+public final class NanoPay {
 
     public static final Logger LOGGER = LoggerFactory.getLogger(NanoPay.class);
     private final WalletManager walletManager;
@@ -45,7 +47,10 @@ public class NanoPay {
         webSocketListener.connectWebSocket(transaction -> {
             NanoPay.LOGGER.debug("Listened to transaction. " + transaction);
             try {
-                walletManager.checkWallet(transaction.receiver().toAddress());
+                Optional<Wallet> walletOptional = walletManager.getWallet(transaction.receiver().toAddress());
+                if (walletOptional.isEmpty()) return;
+                Wallet wallet = walletOptional.get();
+                walletManager.checkWallet(walletManager.getLocalRpcWallet(wallet), wallet);
             } catch (WalletActionException e) {
                 NanoPay.LOGGER.error("Exception occurred checking wallet (" + transaction.receiver().toAddress() + ")", e);
             }

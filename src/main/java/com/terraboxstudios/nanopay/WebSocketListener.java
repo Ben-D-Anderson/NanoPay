@@ -1,5 +1,6 @@
 package com.terraboxstudios.nanopay;
 
+import com.terraboxstudios.nanopay.wallet.Transaction;
 import uk.oczadly.karl.jnano.model.NanoAccount;
 import uk.oczadly.karl.jnano.websocket.NanoWebSocketClient;
 import uk.oczadly.karl.jnano.websocket.WsObserver;
@@ -8,13 +9,17 @@ import uk.oczadly.karl.jnano.websocket.topic.TopicConfirmation;
 import java.net.URI;
 import java.util.function.Consumer;
 
-public final class WebSocketListener {
+final class WebSocketListener {
 
     private final NanoWebSocketClient webSocketClient;
     private Consumer<Transaction> webSocketCallback;
 
     WebSocketListener(URI webSocketURI, boolean reconnect) {
-        this.webSocketClient = new NanoWebSocketClient(webSocketURI);
+        this(new NanoWebSocketClient(webSocketURI), reconnect);
+    }
+
+    WebSocketListener(NanoWebSocketClient nanoWebSocketClient, boolean reconnect) {
+        this.webSocketClient = nanoWebSocketClient;
         this.webSocketClient.setObserver(new WsObserver() {
             @Override
             public void onOpen(int i) {
@@ -64,7 +69,8 @@ public final class WebSocketListener {
     }
 
     void addWalletFilter(String address) {
-        webSocketClient.getTopics().topicConfirmedBlocks().subscribe(new TopicConfirmation.SubArgs().filterAccounts(address).includeBlockContents());
+        webSocketClient.getTopics().topicConfirmedBlocks()
+                .subscribe(new TopicConfirmation.SubArgs().filterAccounts(address).includeBlockContents());
     }
 
 }

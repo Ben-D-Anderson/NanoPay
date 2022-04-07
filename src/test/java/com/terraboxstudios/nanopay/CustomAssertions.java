@@ -1,4 +1,4 @@
-package com.terraboxstudios.nanopay.storage;
+package com.terraboxstudios.nanopay;
 
 import java.util.Collection;
 
@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class CustomAssertions {
 
     @SuppressWarnings("SuspiciousMethodCalls")
-    static <T> void assertUnorderedCollectionEquals(Collection<? super T> a, Collection<? super T> b) {
+    public static <T> void assertUnorderedCollectionEquals(Collection<? super T> a, Collection<? super T> b) {
         assertEquals(a.size(), b.size());
         assertTrue(a.containsAll(b));
         assertTrue(b.containsAll(a));

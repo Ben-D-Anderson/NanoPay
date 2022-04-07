@@ -2,6 +2,7 @@ package com.terraboxstudios.nanopay.storage;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.terraboxstudios.nanopay.CustomAssertions;
 import com.terraboxstudios.nanopay.wallet.Wallet;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

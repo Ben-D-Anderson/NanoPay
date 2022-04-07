@@ -32,7 +32,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-public final class WalletManager {
+final class WalletManager {
 
     private final WalletStorageProvider walletStorageProvider;
     private final RpcQueryNode rpcClient;
@@ -82,7 +82,7 @@ public final class WalletManager {
         this.walletStorageProvider.activeWalletStorage().getAllWallets().forEach(wallet -> {
             this.webSocketListener.addWalletFilter(wallet.address());
             try {
-                checkWallet(wallet.address());
+                checkWallet(getLocalRpcWallet(wallet), wallet);
             } catch (WalletActionException e) {
                 NanoPay.LOGGER.error("Failed to check up on receiving wallet (" + wallet + ").", e);
             }
@@ -98,7 +98,7 @@ public final class WalletManager {
         this.webSocketListener.addWalletFilter(wallet.address());
     }
 
-    private void removeWallet(LocalRpcWalletAccount<StateBlock> walletAccount,
+    void removeWallet(LocalRpcWalletAccount<StateBlock> walletAccount,
                               Wallet wallet,
                               boolean paymentSuccess,
                               boolean receivedMoreThanRequested) {
@@ -203,7 +203,8 @@ public final class WalletManager {
                     LocalRpcWalletAccount<StateBlock> walletAccount = new LocalRpcWalletAccount<>(
                             new HexData(wallet.privateKey()),
                             rpcClient,
-                            blockFactory);
+                            blockFactory
+                    );
                     try {
                         walletAccount.receiveAll();
                     } catch (WalletActionException ignored) {}
@@ -217,12 +218,9 @@ public final class WalletManager {
                 .stream()
                 .filter(wallet -> wallet.creationTime().isBefore(
                         currentTime.minus(this.walletStorageProvider.activeWalletStorage().getWalletExpirationTime())))
-                .forEach(wallet -> removeWallet(new LocalRpcWalletAccount<>(new HexData(wallet.privateKey()),
-                        rpcClient,
-                        blockFactory),
-                        wallet,
-                        false,
-                        false));
+                .forEach(wallet -> removeWallet(new LocalRpcWalletAccount<>(
+                        new HexData(wallet.privateKey()), rpcClient, blockFactory), wallet, false, false
+                ));
         this.walletStorageProvider.deadWalletStorage().getAllWallets()
                 .stream()
                 .filter(wallet -> wallet.creationTime().isBefore(
@@ -230,16 +228,15 @@ public final class WalletManager {
                 .forEach(this.walletStorageProvider.deadWalletStorage()::deleteWallet);
     }
 
-    void checkWallet(String address) throws WalletActionException {
-        Optional<Wallet> walletOptional = this.walletStorageProvider.activeWalletStorage().findWalletByAddress(address);
-        if (walletOptional.isEmpty()) {
-            return;
-        }
-        Wallet wallet = walletOptional.get();
-        LocalRpcWalletAccount<StateBlock> walletAccount = new LocalRpcWalletAccount<>(
-                new HexData(wallet.privateKey()),
-                rpcClient,
-                blockFactory);
+    Optional<Wallet> getWallet(String address) {
+        return this.walletStorageProvider.activeWalletStorage().findWalletByAddress(address);
+    }
+
+    LocalRpcWalletAccount<StateBlock> getLocalRpcWallet(Wallet wallet) {
+        return new LocalRpcWalletAccount<>(new HexData(wallet.privateKey()), rpcClient, blockFactory);
+    }
+
+    void checkWallet(LocalRpcWalletAccount<StateBlock> walletAccount, Wallet wallet) throws WalletActionException {
         walletAccount.receiveAll();
         BigDecimal extraToRefund = walletAccount.getBalance().getAsNano().subtract(wallet.requiredAmount());
         int comparisonResult = extraToRefund.compareTo(BigDecimal.ZERO);

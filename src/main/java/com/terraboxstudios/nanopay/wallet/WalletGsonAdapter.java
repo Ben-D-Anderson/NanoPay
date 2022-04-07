@@ -8,7 +8,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-public class WalletGsonAdapter extends TypeAdapter<Wallet> {
+class WalletGsonAdapter extends TypeAdapter<Wallet> {
 
     @Override
     public void write(JsonWriter jsonWriter, Wallet wallet) throws IOException {
