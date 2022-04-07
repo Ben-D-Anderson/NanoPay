@@ -5,6 +5,7 @@ import com.terraboxstudios.nanopay.wallet.Wallet;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
 /**
@@ -21,12 +22,32 @@ public class CacheWrappedWalletStorage implements WalletStorage {
     private final WalletStorage cache;
     private final WalletStorage backingStorage;
     private final ExecutorService backingOperationService;
+    private final CacheSearchPolicy cachePolicy;
 
     public CacheWrappedWalletStorage(WalletStorage backingStorage, ExecutorService backingOperationService) {
+        this(backingStorage, backingOperationService, CacheSearchPolicy.CACHE_ONLY);
+    }
+
+    public CacheWrappedWalletStorage(WalletStorage backingStorage,
+                                     ExecutorService backingOperationService,
+                                     CacheSearchPolicy cachePolicy) {
         this.cache = new MemoryWalletStorage(backingStorage.getWalletExpirationTime());
         this.backingStorage = backingStorage;
         this.backingOperationService = backingOperationService;
+        this.cachePolicy = cachePolicy;
         backingStorage.getAllWallets().forEach(cache::saveWallet);
+    }
+
+    public enum CacheSearchPolicy {
+        /**
+         * Only search the cache for data and never check the backing wallet storage.
+         */
+        CACHE_ONLY,
+        /**
+         * Initially search the cache for data, if data is not in the cache then fall
+         * back to the backing wallet storage
+         */
+        BACKING_IF_MISS
     }
 
     @Override
@@ -36,7 +57,17 @@ public class CacheWrappedWalletStorage implements WalletStorage {
 
     @Override
     public Optional<Wallet> findWalletByAddress(String address) {
-        return cache.findWalletByAddress(address);
+        Optional<Wallet> walletOptional = cache.findWalletByAddress(address);
+        if (walletOptional.isPresent()) return walletOptional;
+        return switch (cachePolicy) {
+            case CACHE_ONLY -> walletOptional;
+            case BACKING_IF_MISS -> {
+                try {
+                    yield backingOperationService.submit(() -> backingStorage.findWalletByAddress(address)).get();
+                } catch (InterruptedException | ExecutionException ignored) {}
+                yield Optional.empty();
+            }
+        };
     }
 
     @Override

@@ -103,7 +103,6 @@ public final class WalletManager {
                               boolean paymentSuccess,
                               boolean receivedMoreThanRequested) {
         if (paymentSuccess) {
-            //todo abstract away refund policy into separate handler class
             NanoPay.LOGGER.debug("Wallet " + wallet.address() + " received enough NANO to complete payment");
             try {
                 walletAccount.send(this.nanoStorageWallet, NanoAmount.valueOfNano(wallet.requiredAmount()));
@@ -125,8 +124,8 @@ public final class WalletManager {
             }
             walletExpireListener.accept(wallet.address());
         }
-        this.walletStorageProvider.activeWalletStorage().deleteWallet(wallet);
         this.walletStorageProvider.deadWalletStorage().saveWallet(wallet);
+        this.walletStorageProvider.activeWalletStorage().deleteWallet(wallet);
     }
 
     private void refundExtraBalance(LocalRpcWalletAccount<StateBlock> walletAccount, BigDecimal requiredAmount) {

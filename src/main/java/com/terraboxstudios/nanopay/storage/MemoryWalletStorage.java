@@ -14,7 +14,11 @@ public class MemoryWalletStorage implements WalletStorage {
     private final Duration duration;
 
     public MemoryWalletStorage(Duration walletExpiryTime) {
-        this.wallets = Collections.synchronizedMap(new HashMap<>());
+        this(new HashMap<>(), walletExpiryTime);
+    }
+
+    MemoryWalletStorage(Map<String, Wallet> walletsMap, Duration walletExpiryTime) {
+        this.wallets = Collections.synchronizedMap(walletsMap);
         this.duration = walletExpiryTime;
     }
 
