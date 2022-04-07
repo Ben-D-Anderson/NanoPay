@@ -1,15 +1,17 @@
 package com.terraboxstudios.nanopay.wallet;
 
-import lombok.*;
+import uk.oczadly.karl.jnano.model.NanoAccount;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 
-@Value
-public class Wallet {
+public record Wallet(String address, String privateKey, Instant creationTime, BigDecimal requiredAmount) {
 
-    String address, privateKey;
-    Instant creationTime;
-    BigDecimal requiredAmount;
+    public Wallet {
+        if (!NanoAccount.isValidNano(address))
+            throw new IllegalArgumentException("Invalid wallet address");
+        if (requiredAmount.equals(BigDecimal.ZERO))
+            throw new IllegalArgumentException("Required amount cannot be zero");
+    }
 
 }

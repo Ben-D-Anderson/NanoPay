@@ -14,13 +14,13 @@ public class WalletGsonAdapter extends TypeAdapter<Wallet> {
     public void write(JsonWriter jsonWriter, Wallet wallet) throws IOException {
         jsonWriter.beginObject();
         jsonWriter.name("address");
-        jsonWriter.value(wallet.getAddress());
+        jsonWriter.value(wallet.address());
         jsonWriter.name("private_key");
-        jsonWriter.value(wallet.getPrivateKey());
+        jsonWriter.value(wallet.privateKey());
         jsonWriter.name("creation_time");
-        jsonWriter.value(wallet.getCreationTime().toEpochMilli());
+        jsonWriter.value(wallet.creationTime().toEpochMilli());
         jsonWriter.name("required_amount");
-        jsonWriter.value(wallet.getRequiredAmount());
+        jsonWriter.value(wallet.requiredAmount());
         jsonWriter.endObject();
     }
 

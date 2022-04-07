@@ -8,7 +8,6 @@ import com.terraboxstudios.nanopay.wallet.WalletGsonAdapter;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -39,7 +38,7 @@ public class SingleFileWalletStorage implements WalletStorage {
         this.semaphore = new Semaphore(1);
 
         if (!Files.exists(this.storageFile)) {
-            Files.write(this.storageFile, "[]".getBytes(StandardCharsets.UTF_8));
+            Files.writeString(this.storageFile, "[]");
         }
         if (Files.isDirectory(this.storageFile)) {
             throw new IllegalArgumentException("Storage file path provided resolved to a folder, not a file.");
@@ -76,7 +75,7 @@ public class SingleFileWalletStorage implements WalletStorage {
         } catch (InterruptedException ignored) {}
         try (BufferedReader reader = Files.newBufferedReader(storageFile)) {
             Wallet[] wallets = gson.fromJson(reader, Wallet[].class);
-            walletOptional = Arrays.stream(wallets).filter(wallet -> wallet.getAddress().equals(address)).findFirst();
+            walletOptional = Arrays.stream(wallets).filter(wallet -> wallet.address().equals(address)).findFirst();
         } catch (IOException e) {
             NanoPay.LOGGER.error("IO Exception occurred when opening wallet storage file", e);
             walletOptional = Optional.empty();
@@ -104,7 +103,7 @@ public class SingleFileWalletStorage implements WalletStorage {
             semaphore.acquire();
         } catch (InterruptedException ignored) {}
         try {
-            Files.write(storageFile, gson.toJson(wallets.toArray()).getBytes(StandardCharsets.UTF_8));
+            Files.writeString(storageFile, gson.toJson(wallets.toArray()));
         } catch (IOException e) {
             NanoPay.LOGGER.error("IO Exception occurred when saving the wallet storage file", e);
         }

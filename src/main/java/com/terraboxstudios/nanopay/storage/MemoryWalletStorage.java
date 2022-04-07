@@ -30,12 +30,12 @@ public class MemoryWalletStorage implements WalletStorage {
 
     @Override
     public void saveWallet(Wallet wallet) {
-        wallets.put(wallet.getAddress(), wallet);
+        wallets.put(wallet.address(), wallet);
     }
 
     @Override
     public void deleteWallet(Wallet wallet) {
-        wallets.remove(wallet.getAddress());
+        wallets.remove(wallet.address());
     }
 
     @Override

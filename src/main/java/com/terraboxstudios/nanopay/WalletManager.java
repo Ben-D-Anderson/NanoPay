@@ -25,11 +25,12 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.*;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 public final class WalletManager {
 
@@ -78,10 +79,10 @@ public final class WalletManager {
     }
 
     void loadWallets() {
-        this.walletStorageProvider.getActiveWalletStorage().getAllWallets().forEach(wallet -> {
-            this.webSocketListener.addWalletFilter(wallet.getAddress());
+        this.walletStorageProvider.activeWalletStorage().getAllWallets().forEach(wallet -> {
+            this.webSocketListener.addWalletFilter(wallet.address());
             try {
-                checkWallet(wallet.getAddress());
+                checkWallet(wallet.address());
             } catch (WalletActionException e) {
                 NanoPay.LOGGER.error("Failed to check up on receiving wallet (" + wallet + ").", e);
             }
@@ -93,8 +94,8 @@ public final class WalletManager {
                 walletAccount.getPrivateKey().toHexString(),
                 Instant.now(clock),
                 requiredAmount);
-        this.walletStorageProvider.getActiveWalletStorage().saveWallet(wallet);
-        this.webSocketListener.addWalletFilter(wallet.getAddress());
+        this.walletStorageProvider.activeWalletStorage().saveWallet(wallet);
+        this.webSocketListener.addWalletFilter(wallet.address());
     }
 
     private void removeWallet(LocalRpcWalletAccount<StateBlock> walletAccount,
@@ -102,17 +103,18 @@ public final class WalletManager {
                               boolean paymentSuccess,
                               boolean receivedMoreThanRequested) {
         if (paymentSuccess) {
-            NanoPay.LOGGER.debug("Wallet " + wallet.getAddress() + " received enough NANO to complete payment");
+            //todo abstract away refund policy into separate handler class
+            NanoPay.LOGGER.debug("Wallet " + wallet.address() + " received enough NANO to complete payment");
             try {
-                walletAccount.send(this.nanoStorageWallet, NanoAmount.valueOfNano(wallet.getRequiredAmount()));
+                walletAccount.send(this.nanoStorageWallet, NanoAmount.valueOfNano(wallet.requiredAmount()));
             } catch (WalletActionException e) {
-                NanoPay.LOGGER.error("Couldn't send funds from receiving wallet (" + wallet.getAddress() + ")" +
+                NanoPay.LOGGER.error("Couldn't send funds from receiving wallet (" + wallet.address() + ")" +
                         " to storage wallet (" + this.nanoStorageWallet + ").", e);
             }
             if (receivedMoreThanRequested) {
-                refundExtraBalance(walletAccount, wallet.getRequiredAmount());
+                refundExtraBalance(walletAccount, wallet.requiredAmount());
             }
-            this.paymentCompletionListener.accept(wallet.getAddress());
+            this.paymentCompletionListener.accept(wallet.address());
         } else {
             try {
                 if (walletAccount.getBalance().compareTo(NanoAmount.ZERO) > 0) {
@@ -121,10 +123,10 @@ public final class WalletManager {
             } catch (WalletActionException e) {
                 NanoPay.LOGGER.error("Couldn't get balance of receiving wallet (" + wallet + ").", e);
             }
-            walletExpireListener.accept(wallet.getAddress());
+            walletExpireListener.accept(wallet.address());
         }
-        this.walletStorageProvider.getActiveWalletStorage().deleteWallet(wallet);
-        this.walletStorageProvider.getDeadWalletStorage().saveWallet(wallet);
+        this.walletStorageProvider.activeWalletStorage().deleteWallet(wallet);
+        this.walletStorageProvider.deadWalletStorage().saveWallet(wallet);
     }
 
     private void refundExtraBalance(LocalRpcWalletAccount<StateBlock> walletAccount, BigDecimal requiredAmount) {
@@ -135,7 +137,7 @@ public final class WalletManager {
                     .stream()
                     .filter(blockInfo -> blockInfo.getType() == BlockType.RECEIVE)
                     .sorted(Comparator.comparing(ResponseAccountHistory.BlockInfo::getTimestamp))
-                    .collect(Collectors.toList());
+                    .toList();
             BigDecimal totalNano = BigDecimal.ZERO;
             boolean surpassedRequired = false;
             for (ResponseAccountHistory.BlockInfo payment : receivedPayments) {
@@ -197,10 +199,10 @@ public final class WalletManager {
     }
 
     private void refundDeadWallets() {
-        this.walletStorageProvider.getDeadWalletStorage().getAllWallets()
+        this.walletStorageProvider.deadWalletStorage().getAllWallets()
                 .forEach(wallet -> {
                     LocalRpcWalletAccount<StateBlock> walletAccount = new LocalRpcWalletAccount<>(
-                            new HexData(wallet.getPrivateKey()),
+                            new HexData(wallet.privateKey()),
                             rpcClient,
                             blockFactory);
                     try {
@@ -212,35 +214,35 @@ public final class WalletManager {
 
     private void pruneWallets() {
         Instant currentTime = Instant.now(clock);
-        this.walletStorageProvider.getActiveWalletStorage().getAllWallets()
+        this.walletStorageProvider.activeWalletStorage().getAllWallets()
                 .stream()
-                .filter(wallet -> wallet.getCreationTime().isBefore(
-                        currentTime.minus(this.walletStorageProvider.getActiveWalletStorage().getWalletExpirationTime())))
-                .forEach(wallet -> removeWallet(new LocalRpcWalletAccount<>(new HexData(wallet.getPrivateKey()),
+                .filter(wallet -> wallet.creationTime().isBefore(
+                        currentTime.minus(this.walletStorageProvider.activeWalletStorage().getWalletExpirationTime())))
+                .forEach(wallet -> removeWallet(new LocalRpcWalletAccount<>(new HexData(wallet.privateKey()),
                         rpcClient,
                         blockFactory),
                         wallet,
                         false,
                         false));
-        this.walletStorageProvider.getDeadWalletStorage().getAllWallets()
+        this.walletStorageProvider.deadWalletStorage().getAllWallets()
                 .stream()
-                .filter(wallet -> wallet.getCreationTime().isBefore(
-                        currentTime.minus(this.walletStorageProvider.getActiveWalletStorage().getWalletExpirationTime())))
-                .forEach(this.walletStorageProvider.getDeadWalletStorage()::deleteWallet);
+                .filter(wallet -> wallet.creationTime().isBefore(
+                        currentTime.minus(this.walletStorageProvider.activeWalletStorage().getWalletExpirationTime())))
+                .forEach(this.walletStorageProvider.deadWalletStorage()::deleteWallet);
     }
 
     void checkWallet(String address) throws WalletActionException {
-        Optional<Wallet> walletOptional = this.walletStorageProvider.getActiveWalletStorage().findWalletByAddress(address);
-        if (!walletOptional.isPresent()) {
+        Optional<Wallet> walletOptional = this.walletStorageProvider.activeWalletStorage().findWalletByAddress(address);
+        if (walletOptional.isEmpty()) {
             return;
         }
         Wallet wallet = walletOptional.get();
         LocalRpcWalletAccount<StateBlock> walletAccount = new LocalRpcWalletAccount<>(
-                new HexData(wallet.getPrivateKey()),
+                new HexData(wallet.privateKey()),
                 rpcClient,
                 blockFactory);
         walletAccount.receiveAll();
-        BigDecimal extraToRefund = walletAccount.getBalance().getAsNano().subtract(wallet.getRequiredAmount());
+        BigDecimal extraToRefund = walletAccount.getBalance().getAsNano().subtract(wallet.requiredAmount());
         int comparisonResult = extraToRefund.compareTo(BigDecimal.ZERO);
         if (comparisonResult >= 0) {
             removeWallet(walletAccount, wallet, true, comparisonResult > 0);

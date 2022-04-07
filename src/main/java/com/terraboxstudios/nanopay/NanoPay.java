@@ -45,9 +45,9 @@ public class NanoPay {
         webSocketListener.connectWebSocket(transaction -> {
             NanoPay.LOGGER.debug("Listened to transaction. " + transaction);
             try {
-                walletManager.checkWallet(transaction.getReceiver().toAddress());
+                walletManager.checkWallet(transaction.receiver().toAddress());
             } catch (WalletActionException e) {
-                NanoPay.LOGGER.error("Exception occurred checking wallet (" + transaction.getReceiver().toAddress() + ")", e);
+                NanoPay.LOGGER.error("Exception occurred checking wallet (" + transaction.receiver().toAddress() + ")", e);
             }
         });
     }
@@ -58,8 +58,10 @@ public class NanoPay {
      *
      * @param amount The amount of NANO to receive for the payment to be considered completed
      * @return NANO wallet address the payment should be sent to - can be used as a unique identifier for the payment (as wallets are not re-used)
+     * @throws IllegalArgumentException if the amount requested is zero.
      */
     public String requestPayment(BigDecimal amount) {
+        if (amount.equals(BigDecimal.ZERO)) throw new IllegalArgumentException("Required amount cannot be zero");
         return walletManager.requestPayment(amount);
     }
 

@@ -6,7 +6,6 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -26,14 +25,14 @@ class SingleFileWalletStorageTest {
         assertFalse(Files.exists(storageFile));
         new SingleFileWalletStorage(storageFile, Duration.ofMinutes(10));
         assertTrue(Files.exists(storageFile));
-        assertEquals("[]", new String(Files.readAllBytes(storageFile), StandardCharsets.UTF_8));
+        assertEquals("[]", Files.readString(storageFile));
     }
 
     @Test
     void failGetAllWallets(@TempDir Path tempFolder) throws IOException {
         Path storageFile = tempFolder.resolve("wallet-file-storage.json");
         String json = "[]";
-        Files.write(storageFile, json.getBytes(StandardCharsets.UTF_8));
+        Files.writeString(storageFile, json);
 
         SingleFileWalletStorage walletStorage = new SingleFileWalletStorage(storageFile, Duration.ofMinutes(10));
         Collection<Wallet> foundWallets = walletStorage.getAllWallets();
@@ -45,21 +44,22 @@ class SingleFileWalletStorageTest {
     @Test
     void getAllWallets(@TempDir Path tempFolder) throws IOException {
         Path storageFile = tempFolder.resolve("wallet-file-storage.json");
-        String json = "[\n" +
-                "  {\n" +
-                "    \"address\": \"nano_18xbfx1czna9178ah7gkyg6ukrdg919ebn9xt7j6fkq31kh4qwia4r3i7674\",\n" +
-                "    \"private_key\": \"B18852DAB11E34B4C0BEE3C53FCABF75560791E13EC7A5D5F9B7670277DD4643\",\n" +
-                "    \"creation_time\": 1649247684032,\n" +
-                "    \"required_amount\": 0.1\n" +
-                "  },\n" +
-                "  {\n" +
-                "    \"address\": \"nano_3texgo63bs89jhtj4f6fn51nmsbh899nyfxxt51k66o8umhb931dz4bf9eto\",\n" +
-                "    \"private_key\": \"6859580360BA769E3FFAF0260A65ECF0A509715CC4964454A42699D7BE571870\",\n" +
-                "    \"creation_time\": 1649281447828,\n" +
-                "    \"required_amount\": 1.2\n" +
-                "  }\n" +
-                "]";
-        Files.write(storageFile, json.getBytes(StandardCharsets.UTF_8));
+        String json = """
+                [
+                  {
+                    "address": "nano_18xbfx1czna9178ah7gkyg6ukrdg919ebn9xt7j6fkq31kh4qwia4r3i7674",
+                    "private_key": "B18852DAB11E34B4C0BEE3C53FCABF75560791E13EC7A5D5F9B7670277DD4643",
+                    "creation_time": 1649247684032,
+                    "required_amount": 0.1
+                  },
+                  {
+                    "address": "nano_3texgo63bs89jhtj4f6fn51nmsbh899nyfxxt51k66o8umhb931dz4bf9eto",
+                    "private_key": "6859580360BA769E3FFAF0260A65ECF0A509715CC4964454A42699D7BE571870",
+                    "creation_time": 1649281447828,
+                    "required_amount": 1.2
+                  }
+                ]""";
+        Files.writeString(storageFile, json);
 
         SingleFileWalletStorage walletStorage = new SingleFileWalletStorage(storageFile, Duration.ofMinutes(10));
         Collection<Wallet> foundWallets = walletStorage.getAllWallets();
@@ -84,21 +84,22 @@ class SingleFileWalletStorageTest {
     void findWalletByAddress(@TempDir Path tempFolder) throws IOException {
         Path storageFile = tempFolder.resolve("wallet-file-storage.json");
 
-        String json = "[\n" +
-                "  {\n" +
-                "    \"address\": \"nano_18xbfx1czna9178ah7gkyg6ukrdg919ebn9xt7j6fkq31kh4qwia4r3i7674\",\n" +
-                "    \"private_key\": \"B18852DAB11E34B4C0BEE3C53FCABF75560791E13EC7A5D5F9B7670277DD4643\",\n" +
-                "    \"creation_time\": 1649247684032,\n" +
-                "    \"required_amount\": 0.1\n" +
-                "  },\n" +
-                "  {\n" +
-                "    \"address\": \"nano_3texgo63bs89jhtj4f6fn51nmsbh899nyfxxt51k66o8umhb931dz4bf9eto\",\n" +
-                "    \"private_key\": \"6859580360BA769E3FFAF0260A65ECF0A509715CC4964454A42699D7BE571870\",\n" +
-                "    \"creation_time\": 1649281447828,\n" +
-                "    \"required_amount\": 1.2\n" +
-                "  }\n" +
-                "]";
-        Files.write(storageFile, json.getBytes(StandardCharsets.UTF_8));
+        String json = """
+                [
+                  {
+                    "address": "nano_18xbfx1czna9178ah7gkyg6ukrdg919ebn9xt7j6fkq31kh4qwia4r3i7674",
+                    "private_key": "B18852DAB11E34B4C0BEE3C53FCABF75560791E13EC7A5D5F9B7670277DD4643",
+                    "creation_time": 1649247684032,
+                    "required_amount": 0.1
+                  },
+                  {
+                    "address": "nano_3texgo63bs89jhtj4f6fn51nmsbh899nyfxxt51k66o8umhb931dz4bf9eto",
+                    "private_key": "6859580360BA769E3FFAF0260A65ECF0A509715CC4964454A42699D7BE571870",
+                    "creation_time": 1649281447828,
+                    "required_amount": 1.2
+                  }
+                ]""";
+        Files.writeString(storageFile, json);
 
         SingleFileWalletStorage walletStorage = new SingleFileWalletStorage(storageFile, Duration.ofMinutes(10));
         Optional<Wallet> foundWallet = walletStorage.findWalletByAddress("nano_3texgo63bs89jhtj4f6fn51nmsbh899nyfxxt51k66o8umhb931dz4bf9eto");
@@ -117,21 +118,22 @@ class SingleFileWalletStorageTest {
     void failFindWalletByAddress(@TempDir Path tempFolder) throws IOException {
         Path storageFile = tempFolder.resolve("wallet-file-storage.json");
 
-        String json = "[\n" +
-                "  {\n" +
-                "    \"address\": \"nano_18xbfx1czna9178ah7gkyg6ukrdg919ebn9xt7j6fkq31kh4qwia4r3i7674\",\n" +
-                "    \"private_key\": \"B18852DAB11E34B4C0BEE3C53FCABF75560791E13EC7A5D5F9B7670277DD4643\",\n" +
-                "    \"creation_time\": 1649247684032,\n" +
-                "    \"required_amount\": 0.1\n" +
-                "  },\n" +
-                "  {\n" +
-                "    \"address\": \"nano_3texgo63bs89jhtj4f6fn51nmsbh899nyfxxt51k66o8umhb931dz4bf9eto\",\n" +
-                "    \"private_key\": \"6859580360BA769E3FFAF0260A65ECF0A509715CC4964454A42699D7BE571870\",\n" +
-                "    \"creation_time\": 1649281447828,\n" +
-                "    \"required_amount\": 1.2\n" +
-                "  }\n" +
-                "]";
-        Files.write(storageFile, json.getBytes(StandardCharsets.UTF_8));
+        String json = """
+                [
+                  {
+                    "address": "nano_18xbfx1czna9178ah7gkyg6ukrdg919ebn9xt7j6fkq31kh4qwia4r3i7674",
+                    "private_key": "B18852DAB11E34B4C0BEE3C53FCABF75560791E13EC7A5D5F9B7670277DD4643",
+                    "creation_time": 1649247684032,
+                    "required_amount": 0.1
+                  },
+                  {
+                    "address": "nano_3texgo63bs89jhtj4f6fn51nmsbh899nyfxxt51k66o8umhb931dz4bf9eto",
+                    "private_key": "6859580360BA769E3FFAF0260A65ECF0A509715CC4964454A42699D7BE571870",
+                    "creation_time": 1649281447828,
+                    "required_amount": 1.2
+                  }
+                ]""";
+        Files.writeString(storageFile, json);
 
         SingleFileWalletStorage walletStorage = new SingleFileWalletStorage(storageFile, Duration.ofMinutes(10));
         Optional<Wallet> foundWallet = walletStorage.findWalletByAddress("nano_3nafw1z91qhiuadtetwiukao999dthpahy8pdxn19ghxsh7wfcote5skm894");
@@ -143,15 +145,16 @@ class SingleFileWalletStorageTest {
     void saveWalletAppend(@TempDir Path tempFolder) throws IOException {
         Path storageFile = tempFolder.resolve("wallet-file-storage.json");
 
-        String json = "[\n" +
-                "  {\n" +
-                "    \"address\": \"nano_18xbfx1czna9178ah7gkyg6ukrdg919ebn9xt7j6fkq31kh4qwia4r3i7674\",\n" +
-                "    \"private_key\": \"B18852DAB11E34B4C0BEE3C53FCABF75560791E13EC7A5D5F9B7670277DD4643\",\n" +
-                "    \"creation_time\": 1649247684032,\n" +
-                "    \"required_amount\": 0.1\n" +
-                "  }\n" +
-                "]";
-        Files.write(storageFile, json.getBytes(StandardCharsets.UTF_8));
+        String json = """
+                [
+                  {
+                    "address": "nano_18xbfx1czna9178ah7gkyg6ukrdg919ebn9xt7j6fkq31kh4qwia4r3i7674",
+                    "private_key": "B18852DAB11E34B4C0BEE3C53FCABF75560791E13EC7A5D5F9B7670277DD4643",
+                    "creation_time": 1649247684032,
+                    "required_amount": 0.1
+                  }
+                ]""";
+        Files.writeString(storageFile, json);
 
         SingleFileWalletStorage walletStorage = new SingleFileWalletStorage(storageFile, Duration.ofMinutes(10));
         Wallet walletToAdd = new Wallet("nano_3nafw1z91qhiuadtetwiukao999dthpahy8pdxn19ghxsh7wfcote5skm894",
@@ -161,22 +164,23 @@ class SingleFileWalletStorageTest {
         );
         walletStorage.saveWallet(walletToAdd);
 
-        String foundJson = new String(Files.readAllBytes(storageFile), StandardCharsets.UTF_8);
+        String foundJson = Files.readString(storageFile);
 
-        String expectedJson = "[\n" +
-                "  {\n" +
-                "    \"address\": \"nano_18xbfx1czna9178ah7gkyg6ukrdg919ebn9xt7j6fkq31kh4qwia4r3i7674\",\n" +
-                "    \"private_key\": \"B18852DAB11E34B4C0BEE3C53FCABF75560791E13EC7A5D5F9B7670277DD4643\",\n" +
-                "    \"creation_time\": 1649247684032,\n" +
-                "    \"required_amount\": 0.1\n" +
-                "  },\n" +
-                "  {\n" +
-                "    \"address\": \"nano_3nafw1z91qhiuadtetwiukao999dthpahy8pdxn19ghxsh7wfcote5skm894\",\n" +
-                "    \"private_key\": \"5A7D46F332615E6194BF843831531C3BC0EA8B26A15C3C98C15DAD51FCB721A2\",\n" +
-                "    \"creation_time\": 1649283452942,\n" +
-                "    \"required_amount\": 0.05\n" +
-                "  }\n" +
-                "]";
+        String expectedJson = """
+                [
+                  {
+                    "address": "nano_18xbfx1czna9178ah7gkyg6ukrdg919ebn9xt7j6fkq31kh4qwia4r3i7674",
+                    "private_key": "B18852DAB11E34B4C0BEE3C53FCABF75560791E13EC7A5D5F9B7670277DD4643",
+                    "creation_time": 1649247684032,
+                    "required_amount": 0.1
+                  },
+                  {
+                    "address": "nano_3nafw1z91qhiuadtetwiukao999dthpahy8pdxn19ghxsh7wfcote5skm894",
+                    "private_key": "5A7D46F332615E6194BF843831531C3BC0EA8B26A15C3C98C15DAD51FCB721A2",
+                    "creation_time": 1649283452942,
+                    "required_amount": 0.05
+                  }
+                ]""";
 
         assertEquals(expectedJson, foundJson);
     }
@@ -190,36 +194,38 @@ class SingleFileWalletStorageTest {
                 Instant.ofEpochMilli(1649283452942L),
                 new BigDecimal("0.05")
         );
-        String json = "[\n" +
-                "  {\n" +
-                "    \"address\": \"nano_18xbfx1czna9178ah7gkyg6ukrdg919ebn9xt7j6fkq31kh4qwia4r3i7674\",\n" +
-                "    \"private_key\": \"B18852DAB11E34B4C0BEE3C53FCABF75560791E13EC7A5D5F9B7670277DD4643\",\n" +
-                "    \"creation_time\": 1649247684032,\n" +
-                "    \"required_amount\": 0.1\n" +
-                "  },\n" +
-                "  {\n" +
-                "    \"address\": \"nano_3nafw1z91qhiuadtetwiukao999dthpahy8pdxn19ghxsh7wfcote5skm894\",\n" +
-                "    \"private_key\": \"5A7D46F332615E6194BF843831531C3BC0EA8B26A15C3C98C15DAD51FCB721A2\",\n" +
-                "    \"creation_time\": 1649283452942,\n" +
-                "    \"required_amount\": 0.05\n" +
-                "  }\n" +
-                "]";
+        String json = """
+                [
+                  {
+                    "address": "nano_18xbfx1czna9178ah7gkyg6ukrdg919ebn9xt7j6fkq31kh4qwia4r3i7674",
+                    "private_key": "B18852DAB11E34B4C0BEE3C53FCABF75560791E13EC7A5D5F9B7670277DD4643",
+                    "creation_time": 1649247684032,
+                    "required_amount": 0.1
+                  },
+                  {
+                    "address": "nano_3nafw1z91qhiuadtetwiukao999dthpahy8pdxn19ghxsh7wfcote5skm894",
+                    "private_key": "5A7D46F332615E6194BF843831531C3BC0EA8B26A15C3C98C15DAD51FCB721A2",
+                    "creation_time": 1649283452942,
+                    "required_amount": 0.05
+                  }
+                ]""";
 
-        Files.write(storageFile, json.getBytes(StandardCharsets.UTF_8));
+        Files.writeString(storageFile, json);
 
         SingleFileWalletStorage walletStorage = new SingleFileWalletStorage(storageFile, Duration.ofMinutes(10));
         walletStorage.deleteWallet(walletToDelete);
 
-        String expectedJson = "[\n" +
-                "  {\n" +
-                "    \"address\": \"nano_18xbfx1czna9178ah7gkyg6ukrdg919ebn9xt7j6fkq31kh4qwia4r3i7674\",\n" +
-                "    \"private_key\": \"B18852DAB11E34B4C0BEE3C53FCABF75560791E13EC7A5D5F9B7670277DD4643\",\n" +
-                "    \"creation_time\": 1649247684032,\n" +
-                "    \"required_amount\": 0.1\n" +
-                "  }\n" +
-                "]";
+        String expectedJson = """
+                [
+                  {
+                    "address": "nano_18xbfx1czna9178ah7gkyg6ukrdg919ebn9xt7j6fkq31kh4qwia4r3i7674",
+                    "private_key": "B18852DAB11E34B4C0BEE3C53FCABF75560791E13EC7A5D5F9B7670277DD4643",
+                    "creation_time": 1649247684032,
+                    "required_amount": 0.1
+                  }
+                ]""";
 
-        String foundJson = new String(Files.readAllBytes(storageFile), StandardCharsets.UTF_8);
+        String foundJson = Files.readString(storageFile);
 
         assertEquals(expectedJson, foundJson);
     }

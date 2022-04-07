@@ -6,28 +6,30 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class MultipleFileWalletStorageTest {
 
     private void storeWallet(Path storageFolder, Wallet wallet) throws IOException {
-        Path walletPath = storageFolder.resolve(wallet.getAddress());
-        Files.write(walletPath, walletToJson(wallet).getBytes(StandardCharsets.UTF_8));
+        Path walletPath = storageFolder.resolve(wallet.address());
+        Files.writeString(walletPath, walletToJson(wallet));
     }
 
     private String walletToJson(Wallet wallet) {
         return "{\n" +
-                "  \"address\": \"" + wallet.getAddress() + "\",\n" +
-                "  \"private_key\": \"" + wallet.getPrivateKey() + "\",\n" +
-                "  \"creation_time\": " + wallet.getCreationTime().toEpochMilli() + ",\n" +
-                "  \"required_amount\": " + wallet.getRequiredAmount().toString() + "\n" +
+                "  \"address\": \"" + wallet.address() + "\",\n" +
+                "  \"private_key\": \"" + wallet.privateKey() + "\",\n" +
+                "  \"creation_time\": " + wallet.creationTime().toEpochMilli() + ",\n" +
+                "  \"required_amount\": " + wallet.requiredAmount().toString() + "\n" +
                 "}";
     }
 
@@ -110,7 +112,7 @@ class MultipleFileWalletStorageTest {
                 Instant.ofEpochMilli(1649247684032L),
                 new BigDecimal("0.1")
         );
-        Path walletPath = storageFolder.resolve(wallet.getAddress());
+        Path walletPath = storageFolder.resolve(wallet.address());
         assertFalse(Files.exists(walletPath));
 
         MultipleFileWalletStorage walletStorage = new MultipleFileWalletStorage(storageFolder, Duration.ofMinutes(10));
@@ -118,7 +120,7 @@ class MultipleFileWalletStorageTest {
 
         assertTrue(Files.exists(walletPath));
         String expectedWalletJson = walletToJson(wallet);
-        String foundWalletJson = new String(Files.readAllBytes(walletPath), StandardCharsets.UTF_8);
+        String foundWalletJson = Files.readString(walletPath);
         assertEquals(expectedWalletJson, foundWalletJson);
     }
 
@@ -133,7 +135,7 @@ class MultipleFileWalletStorageTest {
         );
         storeWallet(storageFolder, wallet);
 
-        Path walletPath = storageFolder.resolve(wallet.getAddress());
+        Path walletPath = storageFolder.resolve(wallet.address());
         assertTrue(Files.exists(walletPath));
         walletStorage.deleteWallet(wallet);
         assertFalse(Files.exists(walletPath));
