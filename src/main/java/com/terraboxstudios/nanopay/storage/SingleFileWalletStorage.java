@@ -4,7 +4,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.terraboxstudios.nanopay.NanoPay;
 import com.terraboxstudios.nanopay.wallet.Wallet;
-import com.terraboxstudios.nanopay.wallet.WalletGsonAdapter;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -35,6 +34,7 @@ public class SingleFileWalletStorage implements WalletStorage {
     public SingleFileWalletStorage(Path storageFile, Duration walletExpiryTime) throws IOException {
         this.storageFile = storageFile;
         this.walletExpiryTime = walletExpiryTime;
+        this.gson = new GsonBuilder().setPrettyPrinting().create();
         this.semaphore = new Semaphore(1);
 
         if (!Files.exists(this.storageFile)) {
@@ -43,11 +43,6 @@ public class SingleFileWalletStorage implements WalletStorage {
         if (Files.isDirectory(this.storageFile)) {
             throw new IllegalArgumentException("Storage file path provided resolved to a folder, not a file.");
         }
-
-        GsonBuilder builder = new GsonBuilder();
-        builder.registerTypeAdapter(Wallet.class, new WalletGsonAdapter());
-        builder.setPrettyPrinting();
-        this.gson = builder.create();
     }
 
     @Override

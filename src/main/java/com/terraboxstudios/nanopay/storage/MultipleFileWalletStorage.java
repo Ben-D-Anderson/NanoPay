@@ -4,7 +4,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.terraboxstudios.nanopay.NanoPay;
 import com.terraboxstudios.nanopay.wallet.Wallet;
-import com.terraboxstudios.nanopay.wallet.WalletGsonAdapter;
 import uk.oczadly.karl.jnano.model.NanoAccount;
 
 import java.io.IOException;
@@ -38,6 +37,7 @@ public class MultipleFileWalletStorage implements WalletStorage {
     public MultipleFileWalletStorage(Path storageFolder, Duration walletExpiryTime) throws IOException {
         this.storageFolder = storageFolder;
         this.walletExpiryTime = walletExpiryTime;
+        this.gson = new GsonBuilder().setPrettyPrinting().create();
 
         if (!Files.exists(this.storageFolder)) {
             Files.createDirectories(this.storageFolder);
@@ -45,11 +45,6 @@ public class MultipleFileWalletStorage implements WalletStorage {
         if (!Files.isDirectory(this.storageFolder)) {
             throw new IllegalArgumentException("Storage folder path provided resolved to a file, not a folder.");
         }
-
-        GsonBuilder builder = new GsonBuilder();
-        builder.registerTypeAdapter(Wallet.class, new WalletGsonAdapter());
-        builder.setPrettyPrinting();
-        this.gson = builder.create();
     }
 
     @Override
