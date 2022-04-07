@@ -10,10 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Optional;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -33,11 +30,18 @@ class MultipleFileWalletStorageTest {
                 "}";
     }
 
+    @SuppressWarnings("SuspiciousMethodCalls")
+    private <T> void assertUnorderedCollectionEquals(Collection<? super T> a, Collection<? super T> b) {
+        assertEquals(a.size(), b.size());
+        assertTrue(a.containsAll(b));
+        assertTrue(b.containsAll(a));
+    }
+
     @Test
     void failGetAllWallets(@TempDir Path storageFolder) throws IOException {
         MultipleFileWalletStorage walletStorage = new MultipleFileWalletStorage(storageFolder, Duration.ofMinutes(10));
         Collection<Wallet> foundWallets = walletStorage.getAllWallets();
-        assertIterableEquals(Collections.emptyList(), foundWallets);
+        assertUnorderedCollectionEquals(Collections.emptyList(), foundWallets);
     }
 
     @Test
@@ -59,7 +63,7 @@ class MultipleFileWalletStorageTest {
         Collection<Wallet> foundWallets = walletStorage.getAllWallets();
 
         Collection<Wallet> expectedWallets = Arrays.asList(firstWallet, secondWallet);
-        assertIterableEquals(expectedWallets, foundWallets);
+        assertUnorderedCollectionEquals(expectedWallets, foundWallets);
     }
 
     @Test

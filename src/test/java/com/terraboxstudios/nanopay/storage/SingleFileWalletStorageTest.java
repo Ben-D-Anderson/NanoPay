@@ -28,6 +28,13 @@ class SingleFileWalletStorageTest {
         assertEquals("[]", Files.readString(storageFile));
     }
 
+    @SuppressWarnings("SuspiciousMethodCalls")
+    private <T> void assertUnorderedCollectionEquals(Collection<? super T> a, Collection<? super T> b) {
+        assertEquals(a.size(), b.size());
+        assertTrue(a.containsAll(b));
+        assertTrue(b.containsAll(a));
+    }
+
     @Test
     void failGetAllWallets(@TempDir Path tempFolder) throws IOException {
         Path storageFile = tempFolder.resolve("wallet-file-storage.json");
@@ -38,7 +45,7 @@ class SingleFileWalletStorageTest {
         Collection<Wallet> foundWallets = walletStorage.getAllWallets();
 
         Collection<Wallet> expectedWallets = Collections.emptyList();
-        assertIterableEquals(expectedWallets, foundWallets);
+        assertUnorderedCollectionEquals(expectedWallets, foundWallets);
     }
 
     @Test
@@ -77,7 +84,7 @@ class SingleFileWalletStorageTest {
                 )
         );
 
-        assertIterableEquals(expectedWallets, foundWallets);
+        assertUnorderedCollectionEquals(expectedWallets, foundWallets);
     }
 
     @Test
