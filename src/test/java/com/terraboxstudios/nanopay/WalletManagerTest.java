@@ -1,5 +1,8 @@
 package com.terraboxstudios.nanopay;
 
+import com.terraboxstudios.nanopay.deathhandler.DefaultWalletDeathHandler;
+import com.terraboxstudios.nanopay.deathhandler.WalletDeathHandler;
+import com.terraboxstudios.nanopay.deathhandler.WalletDeathState;
 import com.terraboxstudios.nanopay.storage.WalletStorage;
 import com.terraboxstudios.nanopay.storage.WalletStorageProvider;
 import com.terraboxstudios.nanopay.util.SecureRandomUtil;
@@ -39,13 +42,11 @@ import static org.mockito.Mockito.*;
 class WalletManagerTest {
 
     WalletStorageProvider walletStorageProvider;
-    WalletStorage activeWalletStorage, deadWalletStorage;
+    WalletDeathHandler walletDeathHandler;
     WebSocketListener webSocketListener;
     RpcQueryNode rpcClient;
     WalletManager walletManager;
     NanoAccount storageWallet, representative;
-    Consumer<String> paymentSuccessListener;
-    Consumer<String> paymentFailListener;
     Clock clock;
 
     final static BigDecimal MORE_THAN_REQUIRED_AMOUNT = new BigDecimal("8.0");
@@ -55,26 +56,21 @@ class WalletManagerTest {
     @BeforeEach
     void setup() {
         webSocketListener = mock(WebSocketListener.class);
-        activeWalletStorage = mock(WalletStorage.class);
-        deadWalletStorage = mock(WalletStorage.class);
         rpcClient = mock(RpcQueryNode.class);
-        //noinspection unchecked
-        paymentSuccessListener = mock(Consumer.class);
-        //noinspection unchecked
-        paymentFailListener = mock(Consumer.class);
-        walletStorageProvider = new WalletStorageProvider(activeWalletStorage, deadWalletStorage);
+        walletStorageProvider = new WalletStorageProvider(mock(WalletStorage.class), mock(WalletStorage.class));
         storageWallet = NanoAccount.parse("nano_18xbfx1czna9178ah7gkyg6ukrdg919ebn9xt7j6fkq31kh4qwia4r3i7674");
         representative = storageWallet;
         clock = Clock.fixed(Instant.ofEpochMilli(1649281447828L), ZoneId.systemDefault());
+        //noinspection unchecked
+        walletDeathHandler = spy(new DefaultWalletDeathHandler(
+                mock(Consumer.class), mock(Consumer.class), storageWallet, rpcClient));
 
         walletManager = spy(new WalletManager(
                 walletStorageProvider,
+                walletDeathHandler,
                 webSocketListener,
-                storageWallet,
                 rpcClient,
                 representative,
-                paymentSuccessListener,
-                paymentFailListener,
                 clock
         ));
     }
@@ -129,7 +125,7 @@ class WalletManagerTest {
         LocalRpcWalletAccount<StateBlock> rpcWallet = spy(walletManager.getLocalRpcWallet(wallet));
         doReturn(null).when(rpcWallet).send(any(), any());
 
-        walletManager.refundExtraBalance(rpcWallet, wallet.requiredAmount());
+        walletDeathHandler.refundExtraBalance(rpcWallet, wallet.requiredAmount());
         verify(rpcWallet, times(2)).send(sendWalletCaptor.capture(), sendAmountCaptor.capture());
         assertEquals("nano_3kaq71n6i4ndbkjiwjoj9747s74wtf586hu1fobzu7h6wkz86731eug3j3ac",
                 sendWalletCaptor.getAllValues().get(0).toAddress());
@@ -180,7 +176,7 @@ class WalletManagerTest {
         LocalRpcWalletAccount<StateBlock> rpcWallet = spy(walletManager.getLocalRpcWallet(wallet));
         doReturn(null).when(rpcWallet).send(any(), any());
 
-        walletManager.refundExtraBalance(rpcWallet, wallet.requiredAmount());
+        walletDeathHandler.refundExtraBalance(rpcWallet, wallet.requiredAmount());
         verify(rpcWallet, times(1)).send(sendWalletCaptor.capture(), sendAmountCaptor.capture());
         assertEquals("nano_3texgo63bs89jhtj4f6fn51nmsbh899nyfxxt51k66o8umhb931dz4bf9eto",
                 sendWalletCaptor.getValue().toAddress());
@@ -226,7 +222,7 @@ class WalletManagerTest {
         LocalRpcWalletAccount<StateBlock> rpcWallet = spy(walletManager.getLocalRpcWallet(wallet));
         doReturn(null).when(rpcWallet).send(any(), any());
 
-        walletManager.refundExtraBalance(rpcWallet, wallet.requiredAmount());
+        walletDeathHandler.refundExtraBalance(rpcWallet, wallet.requiredAmount());
         verify(rpcWallet, times(1)).send(sendWalletCaptor.capture(), sendAmountCaptor.capture());
         assertEquals("nano_3texgo63bs89jhtj4f6fn51nmsbh899nyfxxt51k66o8umhb931dz4bf9eto",
                 sendWalletCaptor.getValue().toAddress());
@@ -271,7 +267,7 @@ class WalletManagerTest {
         doReturn(NanoAmount.valueOfNano(LESS_THAN_REQUIRED_AMOUNT.add(REQUIRED_AMOUNT))).when(rpcWallet).getBalance();
         doReturn(Optional.empty()).when(rpcWallet).sendAll(any());
 
-        walletManager.refundAllBalance(rpcWallet);
+        walletDeathHandler.refundAllBalance(rpcWallet);
         verify(rpcWallet, times(2)).send(sendWalletCaptor.capture(), sendAmountCaptor.capture());
         assertEquals("nano_3texgo63bs89jhtj4f6fn51nmsbh899nyfxxt51k66o8umhb931dz4bf9eto",
                 sendWalletCaptor.getAllValues().get(0).toAddress());
@@ -298,17 +294,17 @@ class WalletManagerTest {
         LocalRpcWalletAccount<StateBlock> rpcWallet = spy(walletManager.getLocalRpcWallet(wallet));
         doReturn(null).when(rpcWallet).send(any(), any());
         doReturn(NanoAmount.valueOfNano(MORE_THAN_REQUIRED_AMOUNT)).when(rpcWallet).getBalance();
-        WalletManager.WalletDeathState walletDeathState = WalletManager.WalletDeathState.success(true);
-        doNothing().when(walletManager).refundExtraBalance(any(), any());
+        WalletDeathState walletDeathState = WalletDeathState.success(true);
+        doNothing().when(walletDeathHandler).refundExtraBalance(any(), any());
         walletManager.killWallet(rpcWallet, wallet, walletDeathState);
 
         verify(rpcWallet, times(1)).send(sendWalletCaptor.capture(), sendAmountCaptor.capture());
-        verify(walletManager, times(1)).refundExtraBalance(refundExtraBalanceRpcWalletCaptor.capture(),
+        verify(walletDeathHandler, times(1)).refundExtraBalance(refundExtraBalanceRpcWalletCaptor.capture(),
                 refundExtraBalanceRequiredAmountCaptor.capture());
-        verify(paymentSuccessListener, times(1)).accept(wallet.address());
-        verify(paymentFailListener, times(0)).accept(wallet.address());
-        verify(activeWalletStorage).deleteWallet(activeWalletStorageDeleteCaptor.capture());
-        verify(deadWalletStorage).saveWallet(deadWalletStorageSaveCaptor.capture());
+        verify(walletDeathHandler.getPaymentSuccessListener(), times(1)).accept(wallet.address());
+        verify(walletDeathHandler.getPaymentFailListener(), times(0)).accept(wallet.address());
+        verify(walletStorageProvider.activeWalletStorage()).deleteWallet(activeWalletStorageDeleteCaptor.capture());
+        verify(walletStorageProvider.deadWalletStorage()).saveWallet(deadWalletStorageSaveCaptor.capture());
         assertEquals(storageWallet, sendWalletCaptor.getValue());
         assertEquals(NanoAmount.valueOfNano(wallet.requiredAmount()), sendAmountCaptor.getValue());
         assertEquals(wallet, activeWalletStorageDeleteCaptor.getValue());
@@ -328,15 +324,15 @@ class WalletManagerTest {
         LocalRpcWalletAccount<StateBlock> rpcWallet = spy(walletManager.getLocalRpcWallet(wallet));
         doReturn(null).when(rpcWallet).send(any(), any());
         doReturn(NanoAmount.valueOfNano(REQUIRED_AMOUNT)).when(rpcWallet).getBalance();
-        WalletManager.WalletDeathState walletDeathState = WalletManager.WalletDeathState.success(false);
+        WalletDeathState walletDeathState = WalletDeathState.success(false);
         walletManager.killWallet(rpcWallet, wallet, walletDeathState);
 
         verify(rpcWallet, times(1)).send(sendWalletCaptor.capture(), sendAmountCaptor.capture());
-        verify(walletManager, times(0)).refundExtraBalance(any(), any());
-        verify(paymentSuccessListener, times(1)).accept(wallet.address());
-        verify(paymentFailListener, times(0)).accept(wallet.address());
-        verify(activeWalletStorage).deleteWallet(activeWalletStorageDeleteCaptor.capture());
-        verify(deadWalletStorage).saveWallet(deadWalletStorageSaveCaptor.capture());
+        verify(walletDeathHandler, times(0)).refundExtraBalance(any(), any());
+        verify(walletDeathHandler.getPaymentSuccessListener(), times(1)).accept(wallet.address());
+        verify(walletDeathHandler.getPaymentFailListener(), times(0)).accept(wallet.address());
+        verify(walletStorageProvider.activeWalletStorage()).deleteWallet(activeWalletStorageDeleteCaptor.capture());
+        verify(walletStorageProvider.deadWalletStorage()).saveWallet(deadWalletStorageSaveCaptor.capture());
         assertEquals(storageWallet, sendWalletCaptor.getValue());
         assertEquals(NanoAmount.valueOfNano(wallet.requiredAmount()), sendAmountCaptor.getValue());
         assertEquals(wallet, activeWalletStorageDeleteCaptor.getValue());
@@ -354,16 +350,15 @@ class WalletManagerTest {
         Wallet wallet = generateTestWallet();
         LocalRpcWalletAccount<StateBlock> rpcWallet = spy(walletManager.getLocalRpcWallet(wallet));
         doReturn(NanoAmount.valueOfNano(LESS_THAN_REQUIRED_AMOUNT)).when(rpcWallet).getBalance();
-        WalletManager.WalletDeathState walletDeathState = WalletManager.WalletDeathState.failure();
-        doNothing().when(walletManager).refundAllBalance(any());
+        WalletDeathState walletDeathState = WalletDeathState.failure();
+        doNothing().when(walletDeathHandler).refundAllBalance(any());
         walletManager.killWallet(rpcWallet, wallet, walletDeathState);
 
-        verify(walletManager, times(1))
-                .refundAllBalance(refundAllBalanceRpcWalletCaptor.capture());
-        verify(paymentSuccessListener, times(0)).accept(wallet.address());
-        verify(paymentFailListener, times(1)).accept(wallet.address());
-        verify(activeWalletStorage).deleteWallet(activeWalletStorageDeleteCaptor.capture());
-        verify(deadWalletStorage).saveWallet(deadWalletStorageSaveCaptor.capture());
+        verify(walletDeathHandler, times(1)).refundAllBalance(refundAllBalanceRpcWalletCaptor.capture());
+        verify(walletDeathHandler.getPaymentSuccessListener(), times(0)).accept(wallet.address());
+        verify(walletDeathHandler.getPaymentFailListener(), times(1)).accept(wallet.address());
+        verify(walletStorageProvider.activeWalletStorage()).deleteWallet(activeWalletStorageDeleteCaptor.capture());
+        verify(walletStorageProvider.deadWalletStorage()).saveWallet(deadWalletStorageSaveCaptor.capture());
         assertEquals(wallet, activeWalletStorageDeleteCaptor.getValue());
         assertEquals(wallet, deadWalletStorageSaveCaptor.getValue());
         assertEquals(rpcWallet, refundAllBalanceRpcWalletCaptor.getValue());
@@ -377,14 +372,14 @@ class WalletManagerTest {
         Wallet wallet = generateTestWallet();
         LocalRpcWalletAccount<StateBlock> rpcWallet = spy(walletManager.getLocalRpcWallet(wallet));
         doReturn(NanoAmount.ZERO).when(rpcWallet).getBalance();
-        WalletManager.WalletDeathState walletDeathState = WalletManager.WalletDeathState.failure();
+        WalletDeathState walletDeathState = WalletDeathState.failure();
         walletManager.killWallet(rpcWallet, wallet, walletDeathState);
 
-        verify(walletManager, times(0)).refundAllBalance(rpcWallet);
-        verify(paymentSuccessListener, times(0)).accept(wallet.address());
-        verify(paymentFailListener, times(1)).accept(wallet.address());
-        verify(activeWalletStorage).deleteWallet(activeWalletStorageDeleteCaptor.capture());
-        verify(deadWalletStorage).saveWallet(deadWalletStorageSaveCaptor.capture());
+        verify(walletDeathHandler, times(0)).refundAllBalance(rpcWallet);
+        verify(walletDeathHandler.getPaymentSuccessListener(), times(0)).accept(wallet.address());
+        verify(walletDeathHandler.getPaymentFailListener(), times(1)).accept(wallet.address());
+        verify(walletStorageProvider.activeWalletStorage()).deleteWallet(activeWalletStorageDeleteCaptor.capture());
+        verify(walletStorageProvider.deadWalletStorage()).saveWallet(deadWalletStorageSaveCaptor.capture());
         assertEquals(wallet, activeWalletStorageDeleteCaptor.getValue());
         assertEquals(wallet, deadWalletStorageSaveCaptor.getValue());
     }
@@ -396,7 +391,7 @@ class WalletManagerTest {
 
         String address = walletManager.requestPayment(REQUIRED_AMOUNT);
         verify(webSocketListener).addWalletFilter(webSocketFilterCaptor.capture());
-        verify(activeWalletStorage).saveWallet(walletStorageCaptor.capture());
+        verify(walletStorageProvider.activeWalletStorage()).saveWallet(walletStorageCaptor.capture());
 
         assertEquals(address, webSocketFilterCaptor.getValue());
         assertEquals(address, walletStorageCaptor.getValue().address());
@@ -416,7 +411,7 @@ class WalletManagerTest {
             testWallets.add(generateTestWallet());
         }
         Collection<String> testAddresses = testWallets.stream().map(Wallet::address).collect(Collectors.toSet());
-        when(activeWalletStorage.getAllWallets()).thenReturn(testWallets);
+        when(walletStorageProvider.activeWalletStorage().getAllWallets()).thenReturn(testWallets);
         doNothing().when(walletManager).checkWallet(any(), any());
 
         walletManager.loadWallets();
@@ -446,8 +441,8 @@ class WalletManagerTest {
         @SuppressWarnings("unchecked") ArgumentCaptor<LocalRpcWalletAccount<StateBlock>>
                 killRpcWalletCaptor = ArgumentCaptor.forClass(LocalRpcWalletAccount.class);
         ArgumentCaptor<Wallet> killWalletCaptor = ArgumentCaptor.forClass(Wallet.class);
-        ArgumentCaptor<WalletManager.WalletDeathState> killWalletDeathStateCaptor
-                = ArgumentCaptor.forClass(WalletManager.WalletDeathState.class);
+        ArgumentCaptor<WalletDeathState> killWalletDeathStateCaptor
+                = ArgumentCaptor.forClass(WalletDeathState.class);
 
         Wallet wallet = generateTestWallet();
         LocalRpcWalletAccount<StateBlock> rpcWallet = spy(walletManager.getLocalRpcWallet(wallet));
@@ -464,7 +459,7 @@ class WalletManagerTest {
 
         assertEquals(rpcWallet, killRpcWalletCaptor.getValue());
         assertEquals(wallet, killWalletCaptor.getValue());
-        assertEquals(WalletManager.WalletDeathState.success(false), killWalletDeathStateCaptor.getValue());
+        assertEquals(WalletDeathState.success(false), killWalletDeathStateCaptor.getValue());
     }
 
     @Test
@@ -472,8 +467,8 @@ class WalletManagerTest {
         @SuppressWarnings("unchecked") ArgumentCaptor<LocalRpcWalletAccount<StateBlock>>
                 killRpcWalletCaptor = ArgumentCaptor.forClass(LocalRpcWalletAccount.class);
         ArgumentCaptor<Wallet> killWalletCaptor = ArgumentCaptor.forClass(Wallet.class);
-        ArgumentCaptor<WalletManager.WalletDeathState> killWalletDeathStateCaptor
-                = ArgumentCaptor.forClass(WalletManager.WalletDeathState.class);
+        ArgumentCaptor<WalletDeathState> killWalletDeathStateCaptor
+                = ArgumentCaptor.forClass(WalletDeathState.class);
 
         Wallet wallet = generateTestWallet();
         LocalRpcWalletAccount<StateBlock> rpcWallet = spy(walletManager.getLocalRpcWallet(wallet));
@@ -491,7 +486,7 @@ class WalletManagerTest {
 
         assertEquals(rpcWallet, killRpcWalletCaptor.getValue());
         assertEquals(wallet, killWalletCaptor.getValue());
-        assertEquals(WalletManager.WalletDeathState.success(true), killWalletDeathStateCaptor.getValue());
+        assertEquals(WalletDeathState.success(true), killWalletDeathStateCaptor.getValue());
     }
 
 }
