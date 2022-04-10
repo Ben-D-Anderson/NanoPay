@@ -14,6 +14,14 @@ final class WebSocketListener {
     private final NanoWebSocketClient webSocketClient;
     private Consumer<Transaction> webSocketCallback;
 
+    WebSocketListener(URI webSocketURI) {
+        this (webSocketURI, true);
+    }
+
+    WebSocketListener(NanoWebSocketClient nanoWebSocketClient) {
+        this (nanoWebSocketClient, true);
+    }
+
     WebSocketListener(URI webSocketURI, boolean reconnect) {
         this(new NanoWebSocketClient(webSocketURI), reconnect);
     }
@@ -66,11 +74,22 @@ final class WebSocketListener {
                     message.getAmount()
             ));
         });
+//        webSocketClient.getTopics().topicConfirmedBlocks().subscribe();
     }
 
     void addWalletFilter(String address) {
         webSocketClient.getTopics().topicConfirmedBlocks()
                 .subscribe(new TopicConfirmation.SubArgs().filterAccounts(address).includeBlockContents());
     }
+
+//    void addWalletFilter(String address) {
+//        webSocketClient.getTopics().topicConfirmedBlocks()
+//                .update(new TopicConfirmation.UpdateArgs().addAccountsFilter(address));
+//    }
+//
+//    void removeWalletFilter(String address) {
+//        webSocketClient.getTopics().topicConfirmedBlocks()
+//                .update(new TopicConfirmation.UpdateArgs().removeAccountsFilter(address));
+//    }
 
 }

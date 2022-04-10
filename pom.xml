@@ -6,17 +6,20 @@
 
     <groupId>com.terraboxstudios</groupId>
     <artifactId>NanoPay</artifactId>
-    <version>1.0-SNAPSHOT</version>
-
+    <packaging>pom</packaging>
+    <version>0.1.0</version>
     <name>NanoPay</name>
     <description>A Java library to accept NANO cryptocurrency payments.</description>
+
+    <modules>
+        <module>core</module>
+    </modules>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <maven.compiler.source>16</maven.compiler.source>
         <maven.compiler.target>16</maven.compiler.target>
-        <jNano.path>/home/ben/Documents/programming/java/ideaprojects/Random-Tests/jNano/target/jnano-2.20.1.jar</jNano.path>
     </properties>
 
     <repositories>
@@ -27,38 +30,6 @@
     </repositories>
 
     <dependencies>
-        <dependency>
-            <groupId>uk.oczadly.karl</groupId>
-            <artifactId>jnano</artifactId>
-            <version>2.20.1</version>
-            <scope>system</scope>
-            <systemPath>${jNano.path}</systemPath>
-        </dependency>
-        <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-            <version>2.9.0</version>
-        </dependency>
-        <dependency>
-            <groupId>com.github.str4d</groupId>
-            <artifactId>ed25519-java</artifactId>
-            <version>v0.3.0</version>
-        </dependency>
-        <dependency>
-            <groupId>com.rfksystems</groupId>
-            <artifactId>blake2b</artifactId>
-            <version>1.0.0</version>
-        </dependency>
-        <dependency>
-            <groupId>org.java-websocket</groupId>
-            <artifactId>Java-WebSocket</artifactId>
-            <version>1.5.2</version>
-        </dependency>
-        <dependency>
-            <groupId>org.jocl</groupId>
-            <artifactId>jocl</artifactId>
-            <version>2.0.4</version>
-        </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -82,24 +53,19 @@
             <artifactId>slf4j-api</artifactId>
             <version>1.7.36</version>
         </dependency>
-        <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
-            <version>23.0.0</version>
-        </dependency>
     </dependencies>
 
     <build>
         <plugins>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>2.22.2</version>
                 <executions>
                     <execution>
                         <phase>test</phase>
                     </execution>
                 </executions>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.22.2</version>
             </plugin>
         </plugins>
     </build>

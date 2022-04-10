@@ -103,7 +103,7 @@ final class WalletManager {
     }
 
     private void pruneWallets() {
-        Instant currentTime = Instant.now(clock);
+        Instant currentTime = clock.instant();
         this.walletStorageProvider.activeWalletStorage().getAllWallets()
                 .stream()
                 .filter(wallet -> wallet.creationTime().isBefore(

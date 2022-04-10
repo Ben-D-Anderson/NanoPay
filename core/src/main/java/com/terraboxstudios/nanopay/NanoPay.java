@@ -29,7 +29,8 @@ public final class NanoPay {
     private final WalletManager walletManager;
 
     private NanoPay(NanoPay.Builder builder) {
-        WebSocketListener webSocketListener = new WebSocketListener(URI.create(builder.webSocketAddress), builder.webSocketReconnect);
+        WebSocketListener webSocketListener = new WebSocketListener(
+                URI.create(builder.webSocketAddress), builder.webSocketReconnect);
 
         RpcQueryNode rpcClient = new RpcQueryNode(builder.rpcAddress);
         if (builder.walletDeathHandler == null) builder.walletDeathHandler = new DefaultWalletDeathHandler(
@@ -72,7 +73,8 @@ public final class NanoPay {
      * in the active storage of the WalletStorageProvider of this object.
      *
      * @param amount The amount of NANO to receive for the payment to be considered completed
-     * @return NANO wallet address the payment should be sent to - can be used as a unique identifier for the payment (as wallets are not re-used)
+     * @return NANO wallet address the payment should be sent to - can be used as a unique identifier for the payment
+     * (as wallets are not re-used)
      * @throws IllegalArgumentException if the amount requested is zero.
      */
     public String requestPayment(BigDecimal amount) {
@@ -90,7 +92,8 @@ public final class NanoPay {
         private WalletDeathHandler walletDeathHandler;
         private URL rpcAddress;
         private String webSocketAddress = "wss://socket.nanos.cc/";
-        private NanoAccount representativeWallet = NanoAccount.parseAddress("nano_1natrium1o3z5519ifou7xii8crpxpk8y65qmkih8e8bpsjri651oza8imdd");
+        private NanoAccount representativeWallet
+                = NanoAccount.parseAddress("nano_1natrium1o3z5519ifou7xii8crpxpk8y65qmkih8e8bpsjri651oza8imdd");
         private WalletStorageProvider walletStorageProvider;
         private ScheduledExecutorService walletPruneService, refundWalletService;
         private Consumer<String> paymentFailListener = walletAddress -> {};
@@ -100,10 +103,11 @@ public final class NanoPay {
         private Clock clock = Clock.systemDefaultZone();
 
         /**
-         * @param storageWallet Wallet address for the funds of a payment to be transferred to, after the payment has been processed and completed.
+         * @param storageWallet Wallet address for the funds of a payment to be transferred to,
+         *                     after the payment has been processed and completed.
          * @param paymentSuccessListener Called when a payment is processed and completed, the argument to the consumer
-         *                              is the address of the NANO wallet that received the funds for the payment - can be used
-         *                              as a unique identifier for the payment (as wallets are not re-used).
+         *                              is the address of the NANO wallet that received the funds for the payment
+         *                              - can be used as a unique identifier for the payment (as wallets are not re-used).
          */
         @SneakyThrows
         public Builder(String storageWallet, Consumer<String> paymentSuccessListener) {
@@ -187,14 +191,18 @@ public final class NanoPay {
             return this;
         }
 
-        public Builder setWalletPruneDelay(long walletPruneInitialDelay, long walletPruneDelay, TimeUnit walletPruneDelayTimeUnit) {
+        public Builder setWalletPruneDelay(long walletPruneInitialDelay,
+                                           long walletPruneDelay,
+                                           TimeUnit walletPruneDelayTimeUnit) {
             this.walletPruneDelay = walletPruneDelay;
             this.walletPruneInitialDelay = walletPruneInitialDelay;
             this.walletPruneDelayTimeUnit = walletPruneDelayTimeUnit;
             return this;
         }
 
-        public Builder setWalletRefundDelay(long walletRefundInitialDelay, long walletRefundDelay, TimeUnit walletRefundDelayTimeUnit) {
+        public Builder setWalletRefundDelay(long walletRefundInitialDelay,
+                                            long walletRefundDelay,
+                                            TimeUnit walletRefundDelayTimeUnit) {
             this.walletRefundDelay = walletRefundDelay;
             this.walletRefundInitialDelay = walletRefundInitialDelay;
             this.walletRefundDelayTimeUnit = walletRefundDelayTimeUnit;
@@ -202,8 +210,10 @@ public final class NanoPay {
         }
 
         public NanoPay build() {
-            if (walletStorageProvider == null) walletStorageProvider = new WalletStorageProvider(new MemoryWalletStorage(Duration.ofMinutes(15)), new MemoryWalletStorage(Duration.ofMinutes(60)));
-            if ((walletPruneServiceEnabled || refundServiceEnabled) && (walletPruneService == null || refundWalletService == null)) {
+            if (walletStorageProvider == null) walletStorageProvider = new WalletStorageProvider(
+                    new MemoryWalletStorage(Duration.ofMinutes(15)), new MemoryWalletStorage(Duration.ofMinutes(60)));
+            if ((walletPruneServiceEnabled || refundServiceEnabled)
+                    && (walletPruneService == null || refundWalletService == null)) {
                 ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
                 if (walletPruneService == null && walletPruneServiceEnabled) {
                     walletPruneService = scheduledExecutorService;
