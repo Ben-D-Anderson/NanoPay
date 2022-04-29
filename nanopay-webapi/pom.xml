@@ -9,7 +9,7 @@
         <version>0.1.0</version>
     </parent>
 
-    <artifactId>nanopay-web</artifactId>
+    <artifactId>nanopay-webapi</artifactId>
     <description>Javalin Web API For NanoPay</description>
 
     <properties>

@@ -20,8 +20,8 @@
     </developers>
 
     <modules>
-        <module>core</module>
-        <module>web</module>
+        <module>nanopay-core</module>
+        <module>nanopay-webapi</module>
     </modules>
 
     <properties>

@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>nanopay-core</artifactId>
+    <description>Core Wallet Management Functionality For NanoPay</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
