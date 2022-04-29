@@ -2,21 +2,33 @@ package com.terraboxstudios.nanopay;
 
 import com.terraboxstudios.nanopay.deathhandler.DefaultWalletDeathHandler;
 import com.terraboxstudios.nanopay.deathhandler.WalletDeathHandler;
+import com.terraboxstudios.nanopay.deathhandler.WalletDeathState;
 import com.terraboxstudios.nanopay.storage.MemoryWalletStorage;
+import com.terraboxstudios.nanopay.storage.ReadOnlyWalletStorage;
+import com.terraboxstudios.nanopay.storage.WalletStorage;
 import com.terraboxstudios.nanopay.storage.WalletStorageProvider;
 import com.terraboxstudios.nanopay.wallet.Wallet;
 import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.oczadly.karl.jnano.model.NanoAccount;
+import uk.oczadly.karl.jnano.model.block.StateBlock;
 import uk.oczadly.karl.jnano.rpc.RpcQueryNode;
+import uk.oczadly.karl.jnano.rpc.exception.RpcException;
+import uk.oczadly.karl.jnano.rpc.request.node.RequestMultiAccountBalances;
+import uk.oczadly.karl.jnano.rpc.response.ResponseMultiAccountBalances;
+import uk.oczadly.karl.jnano.util.wallet.LocalRpcWalletAccount;
 import uk.oczadly.karl.jnano.util.wallet.WalletActionException;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URL;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -56,7 +68,7 @@ public final class NanoPay {
                     builder.walletRefundDelayTimeUnit);
 
         webSocketListener.connectWebSocket(transaction -> {
-            NanoPay.LOGGER.debug("Listened to transaction. " + transaction);
+            NanoPay.LOGGER.debug("Listened to transaction: " + transaction);
             try {
                 Optional<Wallet> walletOptional = walletManager.getWallet(transaction.receiver().toAddress());
                 if (walletOptional.isEmpty()) return;
@@ -83,11 +95,77 @@ public final class NanoPay {
     }
 
     /**
+     * Attempts to kill the active {@link Wallet} waiting for payment. Any funds in the {@link Wallet} will be acted
+     * on according to the {@link WalletDeathHandler} used by {@link NanoPay}, the {@link Wallet} will then be moved
+     * to dead storage.
+     * @param address Address of {@link Wallet} waiting for payment (equivalent to a transaction identifier)
+     */
+    public boolean cancelPayment(String address) {
+        Optional<Wallet> walletOptional = walletManager.getWallet(address);
+        if (walletOptional.isEmpty()) return false;
+        Wallet wallet = walletOptional.get();
+        walletManager.killWallet(walletManager.getLocalRpcWallet(wallet), wallet, WalletDeathState.failure());
+        return true;
+    }
+
+    /**
+     * @return A read only view of the {@link WalletStorageProvider} used by the underlying {@link WalletManager}. All
+     * returned data in the {@link WalletStorage}s is immutable, with {@link WalletStorage#saveWallet(Wallet)} and
+     * {@link WalletStorage#deleteWallet(Wallet)} throwing an {@link UnsupportedOperationException}.
+     */
+    public WalletStorageProvider getWalletStorage() {
+        return new WalletStorageProvider(
+                new ReadOnlyWalletStorage(walletManager.getWalletStorageProvider().activeWalletStorage()),
+                new ReadOnlyWalletStorage(walletManager.getWalletStorageProvider().deadWalletStorage())
+        );
+    }
+
+    /**
+     * Attempts to get the balance of a {@link Wallet}
+     * @param wallet {@link Wallet} to retrieve the balance of
+     * @return {@link Optional} denoting the retrieved balance of the {@link Wallet}, may be empty.
+     */
+    public Optional<BigDecimal> getBalance(Wallet wallet) {
+        LocalRpcWalletAccount<StateBlock> walletAccount = walletManager.getLocalRpcWallet(wallet);
+        try {
+            walletAccount.receiveAll();
+        } catch (WalletActionException ignored) {}
+        try {
+            return Optional.ofNullable(walletAccount.getBalance().getAsNano());
+        } catch (WalletActionException e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Gets balances of {@link Wallet}s in batch.
+     * @param walletCollection collection of {@link Wallet}s to batch process
+     * @return {@link HashMap} of {@link Wallet} addresses and their respective balance denoted by an {@link Optional}.
+     * If the balance retrieval for a {@link Wallet} failed, then an empty optional is stored as the value in the {@link HashMap}.
+     */
+    public Map<String, Optional<BigDecimal>> getBalances(Collection<Wallet> walletCollection) {
+        Map<String, Optional<BigDecimal>> balances = new HashMap<>();
+        String[] addresses = walletCollection.stream().map(Wallet::address).toArray(String[]::new);
+        RequestMultiAccountBalances requestMultiAccountBalances = new RequestMultiAccountBalances(addresses);
+        try {
+            ResponseMultiAccountBalances responseMultiAccountBalances = walletManager.getRpcClient()
+                    .processRequest(requestMultiAccountBalances);
+            responseMultiAccountBalances.getBalances().forEach(
+                    (entry, balance) -> balances.put(entry.toAddress(), Optional.of(balance.getTotal().getAsNano())));
+            walletCollection.stream().map(Wallet::address).forEach(
+                    address -> balances.computeIfAbsent(address, k -> Optional.empty()));
+            return balances;
+        } catch (IOException | RpcException e) {
+            return new HashMap<>();
+        }
+    }
+
+    /**
      * Builder class used to construct a NanoPay object
      */
     public static class Builder {
 
-        private final Consumer<String> paymentSuccessListener;
+        private final Consumer<String> paymentSuccessListener, paymentFailListener;
         private final NanoAccount storageWallet;
         private WalletDeathHandler walletDeathHandler;
         private URL rpcAddress;
@@ -96,7 +174,6 @@ public final class NanoPay {
                 = NanoAccount.parseAddress("nano_1natrium1o3z5519ifou7xii8crpxpk8y65qmkih8e8bpsjri651oza8imdd");
         private WalletStorageProvider walletStorageProvider;
         private ScheduledExecutorService walletPruneService, refundWalletService;
-        private Consumer<String> paymentFailListener = walletAddress -> {};
         private boolean webSocketReconnect = false, walletPruneServiceEnabled = true, refundServiceEnabled = true;
         private long walletPruneInitialDelay = 1, walletPruneDelay = 1, walletRefundInitialDelay = 5, walletRefundDelay = 5;
         private TimeUnit walletPruneDelayTimeUnit = TimeUnit.MINUTES, walletRefundDelayTimeUnit = TimeUnit.MINUTES;
@@ -108,11 +185,15 @@ public final class NanoPay {
          * @param paymentSuccessListener Called when a payment is processed and completed, the argument to the consumer
          *                              is the address of the NANO wallet that received the funds for the payment
          *                              - can be used as a unique identifier for the payment (as wallets are not re-used).
+         * @param paymentFailListener Called when a payment is failed due to expiry time being met, the argument to the consumer
+         *                              is the address of the NANO wallet that the funds were meant to be sent to
+         *                              - can be used as a unique identifier for the payment (as wallets are not re-used).
          */
         @SneakyThrows
-        public Builder(String storageWallet, Consumer<String> paymentSuccessListener) {
+        public Builder(String storageWallet, Consumer<String> paymentSuccessListener, Consumer<String> paymentFailListener) {
             this.storageWallet = NanoAccount.parseAddress(storageWallet);
             this.paymentSuccessListener = paymentSuccessListener;
+            this.paymentFailListener = paymentFailListener;
             this.rpcAddress = new URL("https://proxy.nanos.cc/proxy");
         }
 
@@ -163,11 +244,6 @@ public final class NanoPay {
 
         public Builder setRpcAddress(URL rpcAddress) {
             this.rpcAddress = rpcAddress;
-            return this;
-        }
-
-        public Builder onPaymentFail(Consumer<String> paymentFailListener) {
-            this.paymentFailListener = paymentFailListener;
             return this;
         }
 
