@@ -5,14 +5,23 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.terraboxstudios</groupId>
-    <artifactId>NanoPay</artifactId>
+    <artifactId>nanopay-parent</artifactId>
     <packaging>pom</packaging>
     <version>0.1.0</version>
     <name>NanoPay</name>
     <description>A Java library to accept NANO cryptocurrency payments.</description>
 
+    <developers>
+        <developer>
+            <name>Ben Anderson</name>
+            <email>benanderson@duck.com</email>
+            <url>https://github.com/Ben-D-Anderson</url>
+        </developer>
+    </developers>
+
     <modules>
         <module>core</module>
+        <module>web</module>
     </modules>
 
     <properties>
@@ -47,11 +56,6 @@
             <artifactId>mockito-inline</artifactId>
             <version>4.3.1</version>
             <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>1.7.36</version>
         </dependency>
     </dependencies>
 
