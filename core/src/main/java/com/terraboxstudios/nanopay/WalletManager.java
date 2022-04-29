@@ -32,7 +32,6 @@ final class WalletManager {
     private final StateBlockFactory blockFactory;
     private final WebSocketListener webSocketListener;
     private final Clock clock;
-
     WalletManager(@NotNull WalletStorageProvider walletStorageProvider,
                   @NotNull WalletDeathHandler walletDeathHandler,
                   @NotNull WebSocketListener webSocketListener,
@@ -45,6 +44,14 @@ final class WalletManager {
         this.rpcClient = rpcClient;
         this.blockFactory = new StateBlockFactory(nanoRepresentative, new NodeWorkGenerator(this.rpcClient));
         this.clock = clock;
+    }
+
+    WalletStorageProvider getWalletStorageProvider() {
+        return walletStorageProvider;
+    }
+
+    RpcQueryNode getRpcClient() {
+        return rpcClient;
     }
 
     String requestPayment(BigDecimal requiredAmount) {
