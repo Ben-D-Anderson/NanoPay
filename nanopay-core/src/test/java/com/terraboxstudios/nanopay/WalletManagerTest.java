@@ -62,7 +62,7 @@ class WalletManagerTest {
         walletStorageProvider = new WalletStorageProvider(mock(WalletStorage.class), mock(WalletStorage.class));
         storageWallet = NanoAccount.parse("nano_18xbfx1czna9178ah7gkyg6ukrdg919ebn9xt7j6fkq31kh4qwia4r3i7674");
         representative = storageWallet;
-        clock = Clock.fixed(Instant.ofEpochMilli(1649281447828L), ZoneId.systemDefault());
+        clock = Clock.fixed(Instant.now(), ZoneId.systemDefault());
         //noinspection unchecked
         walletDeathHandler = spy(new DefaultWalletDeathHandler(
                 mock(Consumer.class), mock(Consumer.class), storageWallet, rpcClient));

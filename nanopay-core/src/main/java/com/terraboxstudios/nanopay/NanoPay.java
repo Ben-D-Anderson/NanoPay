@@ -99,6 +99,7 @@ public final class NanoPay {
      * on according to the {@link WalletDeathHandler} used by {@link NanoPay}, the {@link Wallet} will then be moved
      * to dead storage.
      * @param address Address of {@link Wallet} waiting for payment (equivalent to a transaction identifier)
+     * @return boolean denoting whether the {@link Wallet} could be retrieved from active storage and cancel attempted
      */
     public boolean cancelPayment(String address) {
         Optional<Wallet> walletOptional = walletManager.getWallet(address);
