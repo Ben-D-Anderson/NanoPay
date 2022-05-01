@@ -16,22 +16,15 @@ import uk.oczadly.karl.jnano.model.NanoAccount;
 import uk.oczadly.karl.jnano.model.NanoAmount;
 import uk.oczadly.karl.jnano.model.block.StateBlock;
 import uk.oczadly.karl.jnano.rpc.RpcQueryNode;
-import uk.oczadly.karl.jnano.rpc.exception.RpcException;
-import uk.oczadly.karl.jnano.rpc.request.node.RequestAccountHistory;
-import uk.oczadly.karl.jnano.rpc.request.node.RequestBlockCount;
-import uk.oczadly.karl.jnano.rpc.request.node.RequestTelemetry;
-import uk.oczadly.karl.jnano.rpc.response.ResponseAccountHistory;
-import uk.oczadly.karl.jnano.rpc.response.ResponseBlockCount;
-import uk.oczadly.karl.jnano.rpc.response.ResponseTelemetry;
 import uk.oczadly.karl.jnano.util.WalletUtil;
 import uk.oczadly.karl.jnano.util.wallet.LocalRpcWalletAccount;
 import uk.oczadly.karl.jnano.util.wallet.WalletActionException;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -204,7 +197,7 @@ class WalletManagerTest {
 
         assertEquals(address, webSocketFilterCaptor.getValue());
         assertEquals(address, walletStorageCaptor.getValue().address());
-        assertEquals(clock.instant(), walletStorageCaptor.getValue().creationTime());
+        assertEquals(clock.instant().truncatedTo(ChronoUnit.MILLIS), walletStorageCaptor.getValue().creationTime());
         assertEquals(REQUIRED_AMOUNT, walletStorageCaptor.getValue().requiredAmount());
     }
 
@@ -296,21 +289,6 @@ class WalletManagerTest {
         assertEquals(rpcWallet, killRpcWalletCaptor.getValue());
         assertEquals(wallet, killWalletCaptor.getValue());
         assertEquals(WalletDeathState.success(true), killWalletDeathStateCaptor.getValue());
-    }
-
-    @Test
-    void testNode() throws RpcException, IOException {
-        RequestAccountHistory requestAccountHistory = new RequestAccountHistory(
-                "nano_18xbfx1czna9178ah7gkyg6ukrdg919ebn9xt7j6fkq31kh4qwia4r3i7674"
-        );
-        ResponseAccountHistory responseAccountHistory = new RpcQueryNode("127.0.0.1", 7076).processRequest(requestAccountHistory);
-        responseAccountHistory.getHistory().forEach(System.out::println);
-        RequestTelemetry r1 = new RequestTelemetry();
-        ResponseTelemetry rr1 = new RpcQueryNode("127.0.0.1", 7076).processRequest(r1);
-        System.out.println(rr1);
-        RequestBlockCount r2 = new RequestBlockCount();
-        ResponseBlockCount rr2 = new RpcQueryNode("127.0.0.1", 7076).processRequest(r2);
-        System.out.println(rr2);
     }
 
 }

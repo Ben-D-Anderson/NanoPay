@@ -7,6 +7,7 @@ import lombok.Getter;
 import org.hibernate.HibernateException;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
 import org.hibernate.query.Query;
 
 import javax.persistence.criteria.CriteriaBuilder;
@@ -39,7 +40,14 @@ public class HibernateWalletStorage implements WalletStorage, AutoCloseable {
         DEAD
     }
 
-    public HibernateWalletStorage(WalletType walletType, Duration walletExpiryTime, SessionFactory databaseSessionFactory) {
+    public HibernateWalletStorage(WalletType walletType, Duration walletExpiryTime, Configuration databaseConfiguration) {
+        this(walletType, walletExpiryTime, databaseConfiguration
+                .addAnnotatedClass(WalletEntity.class)
+                .addAnnotatedClass(WalletEntity.WalletEntityId.class)
+                .buildSessionFactory());
+    }
+
+    HibernateWalletStorage(WalletType walletType, Duration walletExpiryTime, SessionFactory databaseSessionFactory) {
         this.activeWalletStorage = walletType == WalletType.ACTIVE;
         this.walletExpiryTime = walletExpiryTime;
         this.databaseSessionFactory = databaseSessionFactory;

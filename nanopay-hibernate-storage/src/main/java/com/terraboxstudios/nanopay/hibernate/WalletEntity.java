@@ -12,16 +12,16 @@ import java.time.Instant;
 @Setter
 @Entity
 @EqualsAndHashCode
-@AllArgsConstructor
-@NoArgsConstructor
+@AllArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class WalletEntity {
 
     @Getter
     @Setter
     @Embeddable
     @EqualsAndHashCode
-    @AllArgsConstructor
-    @NoArgsConstructor
+    @AllArgsConstructor(access = AccessLevel.PROTECTED)
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
     public static class WalletEntityId implements Serializable {
         @Column(name = "address", nullable = false, unique = true, updatable = false)
         private String address;
@@ -29,7 +29,7 @@ public class WalletEntity {
         private boolean active;
     }
 
-    public WalletEntity(Wallet wallet, boolean active) {
+    protected WalletEntity(Wallet wallet, boolean active) {
         this(new WalletEntityId(wallet.address(), active), wallet.privateKey(), wallet.creationTime(), wallet.requiredAmount());
     }
 
