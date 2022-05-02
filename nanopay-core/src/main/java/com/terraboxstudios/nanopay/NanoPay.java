@@ -46,7 +46,7 @@ public final class NanoPay {
 
         RpcQueryNode rpcClient = new RpcQueryNode(builder.rpcAddress);
         if (builder.walletDeathHandler == null) builder.walletDeathHandler = new DefaultWalletDeathHandler(
-                builder.paymentSuccessListener, builder.paymentFailListener, builder.storageWallet, rpcClient);
+                builder.paymentSuccessListener, builder.paymentFailureListener, builder.storageWallet, rpcClient);
         walletManager = new WalletManager(
                 builder.walletStorageProvider,
                 builder.walletDeathHandler,
@@ -166,7 +166,7 @@ public final class NanoPay {
      */
     public static class Builder {
 
-        private final Consumer<String> paymentSuccessListener, paymentFailListener;
+        private final Consumer<String> paymentSuccessListener, paymentFailureListener;
         private final NanoAccount storageWallet;
         private WalletDeathHandler walletDeathHandler;
         private URL rpcAddress;
@@ -175,7 +175,7 @@ public final class NanoPay {
                 = NanoAccount.parseAddress("nano_1natrium1o3z5519ifou7xii8crpxpk8y65qmkih8e8bpsjri651oza8imdd");
         private WalletStorageProvider walletStorageProvider;
         private ScheduledExecutorService walletPruneService, refundWalletService;
-        private boolean webSocketReconnect = false, walletPruneServiceEnabled = true, refundServiceEnabled = true;
+        private boolean webSocketReconnect = true, walletPruneServiceEnabled = true, refundServiceEnabled = true;
         private long walletPruneInitialDelay = 1, walletPruneDelay = 1, walletRefundInitialDelay = 5, walletRefundDelay = 5;
         private TimeUnit walletPruneDelayTimeUnit = TimeUnit.MINUTES, walletRefundDelayTimeUnit = TimeUnit.MINUTES;
         private Clock clock = Clock.systemDefaultZone();
@@ -186,15 +186,15 @@ public final class NanoPay {
          * @param paymentSuccessListener Called when a payment is processed and completed, the argument to the consumer
          *                              is the address of the NANO wallet that received the funds for the payment
          *                              - can be used as a unique identifier for the payment (as wallets are not re-used).
-         * @param paymentFailListener Called when a payment is failed due to expiry time being met, the argument to the consumer
+         * @param paymentFailureListener Called when a payment is failed due to expiry time being met, the argument to the consumer
          *                              is the address of the NANO wallet that the funds were meant to be sent to
          *                              - can be used as a unique identifier for the payment (as wallets are not re-used).
          */
         @SneakyThrows
-        public Builder(String storageWallet, Consumer<String> paymentSuccessListener, Consumer<String> paymentFailListener) {
+        public Builder(String storageWallet, Consumer<String> paymentSuccessListener, Consumer<String> paymentFailureListener) {
             this.storageWallet = NanoAccount.parseAddress(storageWallet);
             this.paymentSuccessListener = paymentSuccessListener;
-            this.paymentFailListener = paymentFailListener;
+            this.paymentFailureListener = paymentFailureListener;
             this.rpcAddress = new URL("https://proxy.nanos.cc/proxy");
         }
 
@@ -248,8 +248,8 @@ public final class NanoPay {
             return this;
         }
 
-        public Builder enableWebSocketReconnect() {
-            this.webSocketReconnect = true;
+        public Builder disableWebSocketReconnect() {
+            this.webSocketReconnect = false;
             return this;
         }
 

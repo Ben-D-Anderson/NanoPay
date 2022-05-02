@@ -39,7 +39,7 @@ public class NanoPayAPI {
 
     private NanoPayAPI() {
         this.config = new NanoPayConfiguration();
-        this.nanoPay = createNanoPay(this.config);
+        this.nanoPay = this.config.createNanoPay(this::onPaymentSuccess, this::onPaymentFailure);
         this.javalin = Javalin.create();
         this.gson = new Gson();
         JavalinValidation.register(NanoAccount.class, NanoAccount::parseAddress);
@@ -51,13 +51,6 @@ public class NanoPayAPI {
         nanoPayAPI.applyPaymentHandlers();
         nanoPayAPI.applyPollEventsWebsocketHandler();
         nanoPayAPI.start();
-    }
-
-    private NanoPay createNanoPay(NanoPayConfiguration config) {
-        NanoPay.Builder builder = new NanoPay.Builder(config.getString("nanopay.storage_wallet"),
-                this::onPaymentSuccess, this::onPaymentFailure);
-        //todo add more customisation in config
-        return builder.build();
     }
 
     private void onPaymentSuccess(String walletAddress) {

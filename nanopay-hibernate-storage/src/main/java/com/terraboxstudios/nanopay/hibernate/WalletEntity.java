@@ -1,9 +1,13 @@
 package com.terraboxstudios.nanopay.hibernate;
 
+import com.terraboxstudios.nanopay.storage.WalletType;
 import com.terraboxstudios.nanopay.wallet.Wallet;
 import lombok.*;
 
-import javax.persistence.*;
+import javax.persistence.Column;
+import javax.persistence.Embeddable;
+import javax.persistence.EmbeddedId;
+import javax.persistence.Entity;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -25,12 +29,12 @@ public class WalletEntity {
     public static class WalletEntityId implements Serializable {
         @Column(name = "address", nullable = false, unique = true, updatable = false)
         private String address;
-        @Column(name = "active", nullable = false, updatable = false)
-        private boolean active;
+        @Column(name = "type", nullable = false, updatable = false)
+        private WalletType walletType;
     }
 
-    protected WalletEntity(Wallet wallet, boolean active) {
-        this(new WalletEntityId(wallet.address(), active), wallet.privateKey(), wallet.creationTime(), wallet.requiredAmount());
+    protected WalletEntity(Wallet wallet, WalletType walletType) {
+        this(new WalletEntityId(wallet.address(), walletType), wallet.privateKey(), wallet.creationTime(), wallet.requiredAmount());
     }
 
     @EmbeddedId

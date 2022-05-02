@@ -2,8 +2,8 @@ package com.terraboxstudios.nanopay.hibernate;
 
 import com.terraboxstudios.nanopay.NanoPay;
 import com.terraboxstudios.nanopay.storage.WalletStorage;
+import com.terraboxstudios.nanopay.storage.WalletType;
 import com.terraboxstudios.nanopay.wallet.Wallet;
-import lombok.Getter;
 import org.hibernate.HibernateException;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -27,17 +27,11 @@ public class HibernateWalletStorage implements WalletStorage, AutoCloseable {
 
     private final Duration walletExpiryTime;
     private final SessionFactory databaseSessionFactory;
-    @Getter
-    private final boolean activeWalletStorage;
+    private final WalletType walletType;
 
     @Override
     public void close() {
         databaseSessionFactory.close();
-    }
-
-    enum WalletType {
-        ACTIVE,
-        DEAD
     }
 
     public HibernateWalletStorage(WalletType walletType, Duration walletExpiryTime, Configuration databaseConfiguration) {
@@ -48,7 +42,7 @@ public class HibernateWalletStorage implements WalletStorage, AutoCloseable {
     }
 
     HibernateWalletStorage(WalletType walletType, Duration walletExpiryTime, SessionFactory databaseSessionFactory) {
-        this.activeWalletStorage = walletType == WalletType.ACTIVE;
+        this.walletType = walletType;
         this.walletExpiryTime = walletExpiryTime;
         this.databaseSessionFactory = databaseSessionFactory;
     }
@@ -82,7 +76,7 @@ public class HibernateWalletStorage implements WalletStorage, AutoCloseable {
             CriteriaBuilder cb = session.getCriteriaBuilder();
             CriteriaQuery<WalletEntity> cr = cb.createQuery(WalletEntity.class);
             Root<WalletEntity> root = cr.from(WalletEntity.class);
-            cr.select(root).where(cb.equal(root.get("walletEntityId").get("active"), isActiveWalletStorage()));
+            cr.select(root).where(cb.equal(root.get("walletEntityId").get("type"), walletType));
             Query<WalletEntity> query = session.createQuery(cr);
             return query.getResultList();
         });
@@ -99,7 +93,7 @@ public class HibernateWalletStorage implements WalletStorage, AutoCloseable {
     @Override
     public Optional<Wallet> findWalletByAddress(String address) {
         Callable<Optional<WalletEntity>> findCallable = createCallable(session ->
-                session.get(WalletEntity.class, new WalletEntity.WalletEntityId(address, isActiveWalletStorage())));
+                session.get(WalletEntity.class, new WalletEntity.WalletEntityId(address, walletType)));
         try {
             return findCallable.call().map(WalletEntity::asWallet);
         } catch (Exception e) {
@@ -113,7 +107,7 @@ public class HibernateWalletStorage implements WalletStorage, AutoCloseable {
         Runnable saveRunnable = createRunnable(session -> {
             session.beginTransaction();
             try {
-                session.save(new WalletEntity(wallet, isActiveWalletStorage()));
+                session.save(new WalletEntity(wallet, walletType));
             } catch (HibernateException e) {
                 NanoPay.LOGGER.error("Hibernate error occurred when saving wallet '" + wallet.address() + "'.", e);
             }
@@ -127,7 +121,7 @@ public class HibernateWalletStorage implements WalletStorage, AutoCloseable {
         Runnable deleteRunnable = createRunnable(session -> {
             session.beginTransaction();
             try {
-                session.delete(new WalletEntity(wallet, isActiveWalletStorage()));
+                session.delete(new WalletEntity(wallet, walletType));
             } catch (HibernateException e) {
                 NanoPay.LOGGER.error("Hibernate error occurred when deleting wallet '" + wallet.address() + "'.", e);
             }

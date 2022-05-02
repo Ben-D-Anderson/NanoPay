@@ -1,5 +1,6 @@
 package com.terraboxstudios.nanopay.hibernate;
 
+import com.terraboxstudios.nanopay.storage.WalletType;
 import com.terraboxstudios.nanopay.util.SecureRandomUtil;
 import com.terraboxstudios.nanopay.wallet.Wallet;
 import lombok.SneakyThrows;
@@ -39,7 +40,6 @@ class HibernateWalletStorageTest {
         Configuration configuration = new Configuration()
                 .addAnnotatedClass(WalletEntity.class)
                 .addAnnotatedClass(WalletEntity.WalletEntityId.class)
-                .setProperty("hibernate.dialect", "org.hibernate.dialect.H2Dialect")
                 .setProperty("hibernate.connection.driver_class", "org.h2.Driver")
                 .setProperty("hibernate.connection.url", "jdbc:h2:mem:testdb")
                 .setProperty("hibernate.hbm2ddl.auto", "create-drop")
@@ -58,9 +58,9 @@ class HibernateWalletStorageTest {
         );
     }
 
-    HibernateWalletStorage getHibernateWalletStorage(boolean activeStorage) {
+    HibernateWalletStorage getHibernateWalletStorage(WalletType walletType) {
         return new HibernateWalletStorage(
-                activeStorage ? HibernateWalletStorage.WalletType.ACTIVE : HibernateWalletStorage.WalletType.DEAD,
+                walletType,
                 Duration.ofMinutes(1),
                 sessionFactory
         );
@@ -70,19 +70,18 @@ class HibernateWalletStorageTest {
     void getAllWallets() {
         Wallet walletOne = generateTestWallet();
         Wallet walletTwo = generateTestWallet();
-        boolean activeStorage = true;
         //insert two wallets into database
         try (Session session = sessionFactory.openSession()) {
             session.beginTransaction();
-            WalletEntity walletEntityOne = new WalletEntity(walletOne, activeStorage);
+            WalletEntity walletEntityOne = new WalletEntity(walletOne, WalletType.ACTIVE);
             session.save(walletEntityOne);
-            WalletEntity walletEntityTwo = new WalletEntity(walletTwo, activeStorage);
+            WalletEntity walletEntityTwo = new WalletEntity(walletTwo, WalletType.ACTIVE);
             session.save(walletEntityTwo);
             session.getTransaction().commit();
         }
         //get wallets from wallet storage and ensure matches expected
         Collection<Wallet> expectedWallets = List.of(walletOne, walletTwo);
-        try (HibernateWalletStorage walletStorage = getHibernateWalletStorage(activeStorage)) {
+        try (HibernateWalletStorage walletStorage = getHibernateWalletStorage(WalletType.ACTIVE)) {
             List<Wallet> foundWallets = new LinkedList<>(walletStorage.getAllWallets());
             assertEquals(expectedWallets.size(), foundWallets.size());
             assertTrue(expectedWallets.containsAll(foundWallets));
@@ -93,16 +92,15 @@ class HibernateWalletStorageTest {
     @Test
     void failFindWalletByAddressDifferentState() {
         Wallet wallet = generateTestWallet();
-        boolean activeStorage = true;
         //insert wallet into database with different active/dead state to wallet storage
         try (Session session = sessionFactory.openSession()) {
             session.beginTransaction();
-            WalletEntity walletEntity = new WalletEntity(wallet, !activeStorage);
+            WalletEntity walletEntity = new WalletEntity(wallet, WalletType.DEAD);
             session.save(walletEntity);
             session.getTransaction().commit();
         }
         //try to find wallet in database and find nothing as state is wrong
-        try (HibernateWalletStorage walletStorage = getHibernateWalletStorage(activeStorage)) {
+        try (HibernateWalletStorage walletStorage = getHibernateWalletStorage(WalletType.ACTIVE)) {
             Optional<Wallet> foundWalletOptional = walletStorage.findWalletByAddress(wallet.address());
             assertFalse(foundWalletOptional.isPresent());
         }
@@ -111,16 +109,15 @@ class HibernateWalletStorageTest {
     @Test
     void findWalletByAddress() {
         Wallet wallet = generateTestWallet();
-        boolean activeStorage = true;
         //insert wallet into database
         try (Session session = sessionFactory.openSession()) {
             session.beginTransaction();
-            WalletEntity walletEntity = new WalletEntity(wallet, activeStorage);
+            WalletEntity walletEntity = new WalletEntity(wallet, WalletType.ACTIVE);
             session.save(walletEntity);
             session.getTransaction().commit();
         }
         //try to find wallet in wallet storage
-        try (HibernateWalletStorage walletStorage = getHibernateWalletStorage(activeStorage)) {
+        try (HibernateWalletStorage walletStorage = getHibernateWalletStorage(WalletType.ACTIVE)) {
             Optional<Wallet> foundWalletOptional = walletStorage.findWalletByAddress(wallet.address());
             assertTrue(foundWalletOptional.isPresent());
             assertEquals(wallet, foundWalletOptional.get());
@@ -130,42 +127,42 @@ class HibernateWalletStorageTest {
     @Test
     void saveActiveWallet() {
         //try save a wallet in active storage
-        saveWallet(generateTestWallet(), true);
+        saveWallet(generateTestWallet(), WalletType.ACTIVE);
     }
 
     @Test
     void saveDeadWallet() {
         //try save a wallet in dead storage
-        saveWallet(generateTestWallet(), false);
+        saveWallet(generateTestWallet(), WalletType.DEAD);
     }
 
     @Test
     void failSaveDuplicateWalletDifferentState() {
         //try save two duplicate wallets but with different active/dead state and ensure an exception is thrown
         Wallet wallet = generateTestWallet();
-        saveWallet(wallet, true);
-        assertThrows(IllegalStateException.class, () -> saveWallet(wallet, false));
+        saveWallet(wallet, WalletType.ACTIVE);
+        assertThrows(IllegalStateException.class, () -> saveWallet(wallet, WalletType.DEAD));
     }
 
     @Test
     void failSaveDuplicateWalletSameState() throws Throwable {
         //try save two duplicate wallets and ensure an exception is thrown
         Wallet wallet = generateTestWallet();
-        Executable saveExecutable = () -> saveWallet(wallet, true);
+        Executable saveExecutable = () -> saveWallet(wallet, WalletType.ACTIVE);
         saveExecutable.execute();
         assertThrows(IllegalStateException.class, saveExecutable);
     }
 
-    void saveWallet(Wallet wallet, boolean activeStorage) {
-        try (HibernateWalletStorage walletStorage = getHibernateWalletStorage(activeStorage)) {
+    void saveWallet(Wallet wallet, WalletType walletType) {
+        try (HibernateWalletStorage walletStorage = getHibernateWalletStorage(walletType)) {
             //save wallet into database
             walletStorage.saveWallet(wallet);
             try (Session session = sessionFactory.openSession()) {
                 //check that wallet is in database
                 WalletEntity walletEntity = session.get(WalletEntity.class,
-                        new WalletEntity.WalletEntityId(wallet.address(), activeStorage));
+                        new WalletEntity.WalletEntityId(wallet.address(), walletType));
                 assertNotNull(walletEntity);
-                assertEquals(activeStorage, walletEntity.getWalletEntityId().isActive());
+                assertEquals(walletType, walletEntity.getWalletEntityId().getWalletType());
                 assertEquals(wallet, walletEntity.asWallet());
             }
         }
@@ -174,19 +171,18 @@ class HibernateWalletStorageTest {
     @Test
     void deleteWallet() {
         Wallet wallet = generateTestWallet();
-        boolean activeStorage = true;
         //insert wallet into database
         try (Session session = sessionFactory.openSession()) {
             session.beginTransaction();
-            WalletEntity walletEntity = new WalletEntity(wallet, activeStorage);
+            WalletEntity walletEntity = new WalletEntity(wallet, WalletType.ACTIVE);
             session.save(walletEntity);
             session.getTransaction().commit();
         }
-        try (HibernateWalletStorage walletStorage = getHibernateWalletStorage(activeStorage)) {
+        try (HibernateWalletStorage walletStorage = getHibernateWalletStorage(WalletType.ACTIVE)) {
             //check wallet is in database
             try (Session session = sessionFactory.openSession()) {
                 WalletEntity walletEntity = session.get(WalletEntity.class,
-                        new WalletEntity.WalletEntityId(wallet.address(), activeStorage));
+                        new WalletEntity.WalletEntityId(wallet.address(), WalletType.ACTIVE));
                 assertNotNull(walletEntity);
             }
             //delete wallet
@@ -194,7 +190,7 @@ class HibernateWalletStorageTest {
             //check wallet is not in database
             try (Session session = sessionFactory.openSession()) {
                 WalletEntity walletEntity = session.get(WalletEntity.class,
-                        new WalletEntity.WalletEntityId(wallet.address(), activeStorage));
+                        new WalletEntity.WalletEntityId(wallet.address(), WalletType.ACTIVE));
                 assertNull(walletEntity);
             }
         }
@@ -203,19 +199,18 @@ class HibernateWalletStorageTest {
     @Test
     void failDeleteWalletDifferentState() {
         Wallet wallet = generateTestWallet();
-        boolean activeStorage = true;
         //insert wallet into database with opposite state to `activeStorage`
         try (Session session = sessionFactory.openSession()) {
             session.beginTransaction();
-            WalletEntity walletEntity = new WalletEntity(wallet, !activeStorage);
+            WalletEntity walletEntity = new WalletEntity(wallet, WalletType.DEAD);
             session.save(walletEntity);
             session.getTransaction().commit();
         }
-        try (HibernateWalletStorage walletStorage = getHibernateWalletStorage(activeStorage)) {
+        try (HibernateWalletStorage walletStorage = getHibernateWalletStorage(WalletType.ACTIVE)) {
             //check wallet is in database
             try (Session session = sessionFactory.openSession()) {
                 WalletEntity walletEntity = session.get(WalletEntity.class,
-                        new WalletEntity.WalletEntityId(wallet.address(), !activeStorage));
+                        new WalletEntity.WalletEntityId(wallet.address(), WalletType.DEAD));
                 assertNotNull(walletEntity);
             }
             //shouldn't delete wallet as wrong active/dead state
@@ -223,7 +218,7 @@ class HibernateWalletStorageTest {
             //check wallet is still in database
             try (Session session = sessionFactory.openSession()) {
                 WalletEntity walletEntity = session.get(WalletEntity.class,
-                        new WalletEntity.WalletEntityId(wallet.address(), !activeStorage));
+                        new WalletEntity.WalletEntityId(wallet.address(), WalletType.DEAD));
                 assertNotNull(walletEntity);
             }
         }
