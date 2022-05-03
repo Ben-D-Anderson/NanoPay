@@ -1,8 +1,6 @@
 package com.terraboxstudios.nanopay;
 
-import com.terraboxstudios.nanopay.deathhandler.DefaultWalletDeathHandler;
-import com.terraboxstudios.nanopay.deathhandler.WalletDeathHandler;
-import com.terraboxstudios.nanopay.deathhandler.WalletDeathState;
+import com.terraboxstudios.nanopay.death.*;
 import com.terraboxstudios.nanopay.storage.MemoryWalletStorage;
 import com.terraboxstudios.nanopay.storage.ReadOnlyWalletStorage;
 import com.terraboxstudios.nanopay.storage.WalletStorage;
@@ -45,11 +43,17 @@ public final class NanoPay {
                 URI.create(builder.webSocketAddress), builder.webSocketReconnect);
 
         RpcQueryNode rpcClient = new RpcQueryNode(builder.rpcAddress);
-        if (builder.walletDeathHandler == null) builder.walletDeathHandler = new DefaultWalletDeathHandler(
-                builder.paymentSuccessListener, builder.paymentFailureListener, builder.storageWallet, rpcClient);
+        if (builder.walletDeathLogger == null) {
+            builder.walletDeathLogger = new DefaultWalletDeathLogger();
+        }
+        if (builder.walletDeathHandler == null) {
+            builder.walletDeathHandler = new DefaultWalletDeathHandler(builder.paymentSuccessListener,
+                    builder.paymentFailureListener, builder.storageWallet, rpcClient);
+        }
         walletManager = new WalletManager(
                 builder.walletStorageProvider,
                 builder.walletDeathHandler,
+                builder.walletDeathLogger,
                 webSocketListener,
                 rpcClient,
                 builder.representativeWallet,
@@ -169,6 +173,7 @@ public final class NanoPay {
         private final Consumer<String> paymentSuccessListener, paymentFailureListener;
         private final NanoAccount storageWallet;
         private WalletDeathHandler walletDeathHandler;
+        private WalletDeathLogger walletDeathLogger;
         private URL rpcAddress;
         private String webSocketAddress = "wss://socket.nanos.cc/";
         private NanoAccount representativeWallet
@@ -219,6 +224,11 @@ public final class NanoPay {
 
         public Builder setWalletDeathHandler(WalletDeathHandler walletDeathHandler) {
             this.walletDeathHandler = walletDeathHandler;
+            return this;
+        }
+
+        public Builder setWalletDeathLogger(WalletDeathLogger walletDeathLogger) {
+            this.walletDeathLogger = walletDeathLogger;
             return this;
         }
 

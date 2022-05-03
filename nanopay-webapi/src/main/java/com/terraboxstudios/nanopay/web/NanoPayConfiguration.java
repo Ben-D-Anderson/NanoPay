@@ -1,6 +1,9 @@
 package com.terraboxstudios.nanopay.web;
 
 import com.terraboxstudios.nanopay.NanoPay;
+import com.terraboxstudios.nanopay.death.DefaultWalletDeathLogger;
+import com.terraboxstudios.nanopay.death.WalletDeathLogger;
+import com.terraboxstudios.nanopay.hibernate.HibernateWalletDeathLogger;
 import com.terraboxstudios.nanopay.hibernate.HibernateWalletStorage;
 import com.terraboxstudios.nanopay.storage.*;
 import lombok.Getter;
@@ -126,8 +129,26 @@ public class NanoPayConfiguration {
         WalletStorage deadStorage = parseWalletStorage(WalletType.DEAD)
                 .orElse(new MemoryWalletStorage(Duration.ofMinutes(60)));
         builder.setWalletStorageProvider(new WalletStorageProvider(activeStorage, deadStorage));
+        //wallet death logger
+        builder.setWalletDeathLogger(parseWalletDeathLogger().orElse(new DefaultWalletDeathLogger()));
 
         return builder.build();
+    }
+
+    private Optional<WalletDeathLogger> parseWalletDeathLogger() {
+        String prefix = "nanopay.deathlog.";
+        String type = getString(prefix + "type");
+        if (type == null)
+            return Optional.empty();
+        if (!type.equalsIgnoreCase("database") && !type.equalsIgnoreCase("hibernate"))
+            return Optional.empty();
+        String url = getString(prefix + "url");
+        String driver = getString(prefix + "driver");
+        Configuration configuration = new Configuration()
+                .setProperty("hibernate.connection.url", url)
+                .setProperty("hibernate.connection.driver_class", driver)
+                .setProperty("hibernate.hbm2ddl.auto", "create-only");
+        return Optional.of(new HibernateWalletDeathLogger(configuration));
     }
 
     private Optional<WalletStorage> parseWalletStorage(WalletType walletType) {
@@ -143,7 +164,7 @@ public class NanoPayConfiguration {
             case "database":
             case "hibernate":
                 String url = getString(prefix + "url");
-                String driver = getString(prefix + "url");
+                String driver = getString(prefix + "driver");
                 Configuration configuration = new Configuration()
                         .setProperty("hibernate.connection.url", url)
                         .setProperty("hibernate.connection.driver_class", driver)

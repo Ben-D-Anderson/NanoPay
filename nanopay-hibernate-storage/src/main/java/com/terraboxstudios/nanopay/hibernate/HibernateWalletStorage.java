@@ -1,11 +1,11 @@
 package com.terraboxstudios.nanopay.hibernate;
 
 import com.terraboxstudios.nanopay.NanoPay;
+import com.terraboxstudios.nanopay.hibernate.entity.WalletEntity;
 import com.terraboxstudios.nanopay.storage.WalletStorage;
 import com.terraboxstudios.nanopay.storage.WalletType;
 import com.terraboxstudios.nanopay.wallet.Wallet;
 import org.hibernate.HibernateException;
-import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
 import org.hibernate.query.Query;
@@ -14,25 +14,14 @@ import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Root;
 import java.time.Duration;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.Callable;
-import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public class HibernateWalletStorage implements WalletStorage, AutoCloseable {
+public class HibernateWalletStorage extends DatabaseAccessor implements WalletStorage, AutoCloseable {
 
     private final Duration walletExpiryTime;
-    private final SessionFactory databaseSessionFactory;
     private final WalletType walletType;
-
-    @Override
-    public void close() {
-        databaseSessionFactory.close();
-    }
 
     public HibernateWalletStorage(WalletType walletType, Duration walletExpiryTime, Configuration databaseConfiguration) {
         this(walletType, walletExpiryTime, databaseConfiguration
@@ -42,32 +31,9 @@ public class HibernateWalletStorage implements WalletStorage, AutoCloseable {
     }
 
     HibernateWalletStorage(WalletType walletType, Duration walletExpiryTime, SessionFactory databaseSessionFactory) {
+        super(databaseSessionFactory);
         this.walletType = walletType;
         this.walletExpiryTime = walletExpiryTime;
-        this.databaseSessionFactory = databaseSessionFactory;
-    }
-
-    private Runnable createRunnable(Consumer<Session> sessionConsumer) {
-        return () -> {
-            try (Session session = databaseSessionFactory.openSession()) {
-                sessionConsumer.accept(session);
-            } catch (HibernateException e) {
-                NanoPay.LOGGER.error("Hibernate error occurred.", e);
-            }
-        };
-    }
-
-    private <T> Callable<Optional<T>> createCallable(Function<Session, T> sessionFunction) {
-        return () -> {
-            T callbackValue;
-            try (Session session = databaseSessionFactory.openSession()) {
-                callbackValue = sessionFunction.apply(session);
-            } catch (HibernateException e) {
-                NanoPay.LOGGER.error("Hibernate error occurred.", e);
-                return Optional.empty();
-            }
-            return Optional.ofNullable(callbackValue);
-        };
     }
 
     @Override
@@ -76,17 +42,17 @@ public class HibernateWalletStorage implements WalletStorage, AutoCloseable {
             CriteriaBuilder cb = session.getCriteriaBuilder();
             CriteriaQuery<WalletEntity> cr = cb.createQuery(WalletEntity.class);
             Root<WalletEntity> root = cr.from(WalletEntity.class);
-            cr.select(root).where(cb.equal(root.get("walletEntityId").get("type"), walletType));
+            cr.select(root).where(cb.equal(root.get("walletEntityId").get("walletType"), walletType));
             Query<WalletEntity> query = session.createQuery(cr);
             return query.getResultList();
         });
         try {
             return findCallable.call().map(walletEntities ->
                     walletEntities.stream().map(WalletEntity::asWallet).collect(Collectors.toSet())
-            ).orElse(new HashSet<>());
+            ).orElse(Collections.emptySet());
         } catch (Exception e) {
             NanoPay.LOGGER.error("Hibernate error occurred when getting all wallets.", e);
-            return new HashSet<>();
+            return Collections.emptySet();
         }
     }
 

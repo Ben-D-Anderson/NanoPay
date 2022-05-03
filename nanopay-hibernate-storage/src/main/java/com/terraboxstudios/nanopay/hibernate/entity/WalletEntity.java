@@ -1,13 +1,10 @@
-package com.terraboxstudios.nanopay.hibernate;
+package com.terraboxstudios.nanopay.hibernate.entity;
 
 import com.terraboxstudios.nanopay.storage.WalletType;
 import com.terraboxstudios.nanopay.wallet.Wallet;
 import lombok.*;
 
-import javax.persistence.Column;
-import javax.persistence.Embeddable;
-import javax.persistence.EmbeddedId;
-import javax.persistence.Entity;
+import javax.persistence.*;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -16,7 +13,7 @@ import java.time.Instant;
 @Setter
 @Entity
 @EqualsAndHashCode
-@AllArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class WalletEntity {
 
@@ -24,16 +21,18 @@ public class WalletEntity {
     @Setter
     @Embeddable
     @EqualsAndHashCode
-    @AllArgsConstructor(access = AccessLevel.PROTECTED)
+    @AllArgsConstructor
     @NoArgsConstructor(access = AccessLevel.PROTECTED)
     public static class WalletEntityId implements Serializable {
         @Column(name = "address", nullable = false, unique = true, updatable = false)
         private String address;
+
+        @Enumerated(EnumType.STRING)
         @Column(name = "type", nullable = false, updatable = false)
         private WalletType walletType;
     }
 
-    protected WalletEntity(Wallet wallet, WalletType walletType) {
+    public WalletEntity(Wallet wallet, WalletType walletType) {
         this(new WalletEntityId(wallet.address(), walletType), wallet.privateKey(), wallet.creationTime(), wallet.requiredAmount());
     }
 

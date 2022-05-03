@@ -1,11 +1,8 @@
 package com.terraboxstudios.nanopay;
 
-import com.terraboxstudios.nanopay.deathhandler.DefaultWalletDeathHandler;
-import com.terraboxstudios.nanopay.deathhandler.WalletDeathHandler;
-import com.terraboxstudios.nanopay.deathhandler.WalletDeathState;
+import com.terraboxstudios.nanopay.death.*;
 import com.terraboxstudios.nanopay.storage.WalletStorage;
 import com.terraboxstudios.nanopay.storage.WalletStorageProvider;
-import com.terraboxstudios.nanopay.util.SecureRandomUtil;
 import com.terraboxstudios.nanopay.wallet.Wallet;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +13,7 @@ import uk.oczadly.karl.jnano.model.NanoAccount;
 import uk.oczadly.karl.jnano.model.NanoAmount;
 import uk.oczadly.karl.jnano.model.block.StateBlock;
 import uk.oczadly.karl.jnano.rpc.RpcQueryNode;
+import uk.oczadly.karl.jnano.util.SecureRandomUtil;
 import uk.oczadly.karl.jnano.util.WalletUtil;
 import uk.oczadly.karl.jnano.util.wallet.LocalRpcWalletAccount;
 import uk.oczadly.karl.jnano.util.wallet.WalletActionException;
@@ -38,6 +36,7 @@ class WalletManagerTest {
 
     WalletStorageProvider walletStorageProvider;
     WalletDeathHandler walletDeathHandler;
+    WalletDeathLogger walletDeathLogger;
     WebSocketListener webSocketListener;
     RpcQueryNode rpcClient;
     WalletManager walletManager;
@@ -56,6 +55,7 @@ class WalletManagerTest {
         storageWallet = NanoAccount.parse("nano_18xbfx1czna9178ah7gkyg6ukrdg919ebn9xt7j6fkq31kh4qwia4r3i7674");
         representative = storageWallet;
         clock = Clock.fixed(Instant.now(), ZoneId.systemDefault());
+        walletDeathLogger = mock(DefaultWalletDeathLogger.class);
         //noinspection unchecked
         walletDeathHandler = spy(new DefaultWalletDeathHandler(
                 mock(Consumer.class), mock(Consumer.class), storageWallet, rpcClient));
@@ -63,6 +63,7 @@ class WalletManagerTest {
         walletManager = spy(new WalletManager(
                 walletStorageProvider,
                 walletDeathHandler,
+                walletDeathLogger,
                 webSocketListener,
                 rpcClient,
                 representative,
@@ -98,6 +99,7 @@ class WalletManagerTest {
         doReturn(NanoAmount.valueOfNano(MORE_THAN_REQUIRED_AMOUNT)).when(rpcWallet).getBalance();
         WalletDeathState walletDeathState = WalletDeathState.success(true);
         doNothing().when(walletDeathHandler).refundExtraBalance(any(), any());
+        doNothing().when(walletDeathLogger).log(any());
         walletManager.killWallet(rpcWallet, wallet, walletDeathState);
 
         verify(rpcWallet, times(1)).send(sendWalletCaptor.capture(), sendAmountCaptor.capture());
@@ -126,6 +128,7 @@ class WalletManagerTest {
         LocalRpcWalletAccount<StateBlock> rpcWallet = spy(walletManager.getLocalRpcWallet(wallet));
         doReturn(null).when(rpcWallet).send(any(), any());
         doReturn(NanoAmount.valueOfNano(REQUIRED_AMOUNT)).when(rpcWallet).getBalance();
+        doNothing().when(walletDeathLogger).log(any());
         WalletDeathState walletDeathState = WalletDeathState.success(false);
         walletManager.killWallet(rpcWallet, wallet, walletDeathState);
 
@@ -154,6 +157,7 @@ class WalletManagerTest {
         doReturn(NanoAmount.valueOfNano(LESS_THAN_REQUIRED_AMOUNT)).when(rpcWallet).getBalance();
         WalletDeathState walletDeathState = WalletDeathState.failure();
         doNothing().when(walletDeathHandler).refundAllBalance(any());
+        doNothing().when(walletDeathLogger).log(any());
         walletManager.killWallet(rpcWallet, wallet, walletDeathState);
 
         verify(walletDeathHandler, times(1)).refundAllBalance(refundAllBalanceRpcWalletCaptor.capture());
@@ -175,6 +179,7 @@ class WalletManagerTest {
         LocalRpcWalletAccount<StateBlock> rpcWallet = spy(walletManager.getLocalRpcWallet(wallet));
         doReturn(NanoAmount.ZERO).when(rpcWallet).getBalance();
         WalletDeathState walletDeathState = WalletDeathState.failure();
+        doNothing().when(walletDeathLogger).log(any());
         walletManager.killWallet(rpcWallet, wallet, walletDeathState);
 
         verify(walletDeathHandler, times(0)).refundAllBalance(rpcWallet);

@@ -1,4 +1,4 @@
-package com.terraboxstudios.nanopay.deathhandler;
+package com.terraboxstudios.nanopay.death;
 
 public record WalletDeathState(boolean success, boolean receivedExtra) {
 

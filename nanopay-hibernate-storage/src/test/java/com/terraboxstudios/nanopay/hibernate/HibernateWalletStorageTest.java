@@ -1,7 +1,7 @@
 package com.terraboxstudios.nanopay.hibernate;
 
+import com.terraboxstudios.nanopay.hibernate.entity.WalletEntity;
 import com.terraboxstudios.nanopay.storage.WalletType;
-import com.terraboxstudios.nanopay.util.SecureRandomUtil;
 import com.terraboxstudios.nanopay.wallet.Wallet;
 import lombok.SneakyThrows;
 import org.hibernate.Session;
@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import uk.oczadly.karl.jnano.model.HexData;
 import uk.oczadly.karl.jnano.model.NanoAccount;
+import uk.oczadly.karl.jnano.util.SecureRandomUtil;
 import uk.oczadly.karl.jnano.util.WalletUtil;
 
 import java.math.BigDecimal;

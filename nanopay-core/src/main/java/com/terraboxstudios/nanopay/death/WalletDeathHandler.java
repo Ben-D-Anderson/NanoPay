@@ -1,4 +1,4 @@
-package com.terraboxstudios.nanopay.deathhandler;
+package com.terraboxstudios.nanopay.death;
 
 import com.terraboxstudios.nanopay.wallet.Wallet;
 import lombok.AllArgsConstructor;

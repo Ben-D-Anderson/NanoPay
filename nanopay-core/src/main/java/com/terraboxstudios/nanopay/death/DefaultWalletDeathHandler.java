@@ -1,4 +1,4 @@
-package com.terraboxstudios.nanopay.deathhandler;
+package com.terraboxstudios.nanopay.death;
 
 import com.terraboxstudios.nanopay.NanoPay;
 import com.terraboxstudios.nanopay.wallet.Wallet;
@@ -33,7 +33,6 @@ public class DefaultWalletDeathHandler extends WalletDeathHandler {
                             Wallet wallet,
                             WalletDeathState walletDeathState) {
         if (walletDeathState.success()) {
-            NanoPay.LOGGER.debug("Wallet " + wallet.address() + " received enough NANO to complete payment");
             try {
                 walletAccount.send(storageWallet, NanoAmount.valueOfNano(wallet.requiredAmount()));
             } catch (WalletActionException e) {
