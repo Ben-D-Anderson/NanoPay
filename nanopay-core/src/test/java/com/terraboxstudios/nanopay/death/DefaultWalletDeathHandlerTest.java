@@ -1,6 +1,5 @@
-package com.terraboxstudios.nanopay.deathhandler;
+package com.terraboxstudios.nanopay.death;
 
-import com.terraboxstudios.nanopay.util.SecureRandomUtil;
 import com.terraboxstudios.nanopay.wallet.Wallet;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +15,7 @@ import uk.oczadly.karl.jnano.rpc.RpcQueryNode;
 import uk.oczadly.karl.jnano.rpc.exception.RpcException;
 import uk.oczadly.karl.jnano.rpc.request.node.RequestAccountHistory;
 import uk.oczadly.karl.jnano.rpc.response.ResponseAccountHistory;
+import uk.oczadly.karl.jnano.util.SecureRandomUtil;
 import uk.oczadly.karl.jnano.util.WalletUtil;
 import uk.oczadly.karl.jnano.util.wallet.LocalRpcWalletAccount;
 import uk.oczadly.karl.jnano.util.wallet.WalletActionException;
