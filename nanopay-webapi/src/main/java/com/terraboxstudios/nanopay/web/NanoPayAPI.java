@@ -2,6 +2,8 @@ package com.terraboxstudios.nanopay.web;
 
 import com.google.gson.Gson;
 import com.terraboxstudios.nanopay.NanoPay;
+import com.terraboxstudios.nanopay.web.controller.EventAccessController;
+import com.terraboxstudios.nanopay.web.controller.PaymentController;
 import io.javalin.Javalin;
 import io.javalin.core.validation.JavalinValidation;
 import io.javalin.http.HttpCode;
@@ -9,6 +11,7 @@ import io.javalin.websocket.WsContext;
 import uk.oczadly.karl.jnano.model.NanoAccount;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -43,13 +46,14 @@ public class NanoPayAPI {
         this.javalin = Javalin.create();
         this.gson = new Gson();
         JavalinValidation.register(NanoAccount.class, NanoAccount::parseAddress);
+        JavalinValidation.register(Instant.class, s -> Instant.ofEpochMilli(Long.parseLong(s)));
     }
 
     public static void main(String[] args) {
         NanoPayAPI nanoPayAPI = new NanoPayAPI();
         nanoPayAPI.applyAuthKeyRequirementHandler();
-        nanoPayAPI.applyPaymentHandlers();
-        nanoPayAPI.applyPollEventsWebsocketHandler();
+        nanoPayAPI.applyHandlers();
+        nanoPayAPI.applyEventsWebsocketHandler();
         nanoPayAPI.start();
     }
 
@@ -69,20 +73,26 @@ public class NanoPayAPI {
         javalin.start(config.getString("api.address"), config.getInt("api.port"));
     }
 
-    private void applyPaymentHandlers() {
+    private void applyHandlers() {
         PaymentController paymentController = new PaymentController(nanoPay);
+        EventAccessController eventAccessController = new EventAccessController(nanoPay);
 
-        javalin.routes(() -> path("payments", () -> {
-            get(paymentController::getAllWallets);
-            post(paymentController::createWallet);
-            path("{wallet}", () -> {
-                get(paymentController::getWallet);
-                delete(paymentController::deleteWallet);
+        javalin.routes(() -> {
+            path("payments", () -> {
+                get(paymentController::getAllWallets);
+                post(paymentController::createWallet);
+                path("{wallet}", () -> {
+                    get(paymentController::getWallet);
+                    delete(paymentController::deleteWallet);
+                });
             });
-        }));
+            path("events", () -> {
+                get(eventAccessController::getEvents);
+            });
+        });
     }
 
-    private void applyPollEventsWebsocketHandler() {
+    private void applyEventsWebsocketHandler() {
         javalin.ws("/events", wsConfig -> {
             if (config.getBoolean("api.require_auth_key")) {
                 wsConfig.onMessage(ctx -> {

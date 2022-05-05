@@ -1,7 +1,8 @@
-package com.terraboxstudios.nanopay.web;
+package com.terraboxstudios.nanopay.web.controller;
 
 import com.terraboxstudios.nanopay.NanoPay;
 import com.terraboxstudios.nanopay.wallet.Wallet;
+import com.terraboxstudios.nanopay.web.NanoPayAPI;
 import io.javalin.http.Context;
 import io.javalin.http.HttpCode;
 import io.javalin.http.NotFoundResponse;

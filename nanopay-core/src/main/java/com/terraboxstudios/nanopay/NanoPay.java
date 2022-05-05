@@ -125,6 +125,10 @@ public final class NanoPay {
         );
     }
 
+    public WalletDeathLogger getWalletDeathLogger() {
+        return walletManager.getWalletDeathLogger();
+    }
+
     /**
      * Attempts to get the balance of a {@link Wallet}
      * @param wallet {@link Wallet} to retrieve the balance of

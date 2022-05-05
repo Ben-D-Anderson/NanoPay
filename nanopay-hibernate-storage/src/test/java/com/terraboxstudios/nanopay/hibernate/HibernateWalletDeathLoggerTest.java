@@ -99,6 +99,7 @@ class HibernateWalletDeathLoggerTest {
             session.save(new DeadWalletEntity(deadWalletFive));
             session.getTransaction().commit();
         }
+        //check wallets retrieved by range are correct
         List<DeadWallet> walletsToFind = List.of(deadWalletTwo, deadWalletThree, deadWalletFour);
         try (HibernateWalletDeathLogger deathLogger = getHibernateWalletDeathLogger()) {
             List<DeadWallet> foundWallets = deathLogger.findByRange(rangeLower, rangeHigher);

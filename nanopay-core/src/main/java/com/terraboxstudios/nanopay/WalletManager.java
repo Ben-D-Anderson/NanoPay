@@ -51,6 +51,10 @@ final class WalletManager {
         this.clock = clock;
     }
 
+    WalletDeathLogger getWalletDeathLogger() {
+        return walletDeathLogger;
+    }
+
     WalletStorageProvider getWalletStorageProvider() {
         return walletStorageProvider;
     }
