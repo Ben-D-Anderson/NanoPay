@@ -24,7 +24,6 @@ import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
-import java.util.logging.Level;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -36,7 +35,6 @@ class HibernateWalletStorageTest {
 
     @BeforeEach
     void setupDatabase() {
-        java.util.logging.Logger.getLogger("org.hibernate").setLevel(Level.SEVERE);
         clock = Clock.fixed(Instant.now(), ZoneId.systemDefault());
         Configuration configuration = new Configuration()
                 .addAnnotatedClass(WalletEntity.class)
@@ -75,9 +73,9 @@ class HibernateWalletStorageTest {
         try (Session session = sessionFactory.openSession()) {
             session.beginTransaction();
             WalletEntity walletEntityOne = new WalletEntity(walletOne, WalletType.ACTIVE);
-            session.save(walletEntityOne);
+            session.persist(walletEntityOne);
             WalletEntity walletEntityTwo = new WalletEntity(walletTwo, WalletType.ACTIVE);
-            session.save(walletEntityTwo);
+            session.persist(walletEntityTwo);
             session.getTransaction().commit();
         }
         //get wallets from wallet storage and ensure matches expected
@@ -97,7 +95,7 @@ class HibernateWalletStorageTest {
         try (Session session = sessionFactory.openSession()) {
             session.beginTransaction();
             WalletEntity walletEntity = new WalletEntity(wallet, WalletType.DEAD);
-            session.save(walletEntity);
+            session.persist(walletEntity);
             session.getTransaction().commit();
         }
         //try to find wallet in database and find nothing as state is wrong
@@ -114,7 +112,7 @@ class HibernateWalletStorageTest {
         try (Session session = sessionFactory.openSession()) {
             session.beginTransaction();
             WalletEntity walletEntity = new WalletEntity(wallet, WalletType.ACTIVE);
-            session.save(walletEntity);
+            session.persist(walletEntity);
             session.getTransaction().commit();
         }
         //try to find wallet in wallet storage
@@ -176,7 +174,7 @@ class HibernateWalletStorageTest {
         try (Session session = sessionFactory.openSession()) {
             session.beginTransaction();
             WalletEntity walletEntity = new WalletEntity(wallet, WalletType.ACTIVE);
-            session.save(walletEntity);
+            session.persist(walletEntity);
             session.getTransaction().commit();
         }
         try (HibernateWalletStorage walletStorage = getHibernateWalletStorage(WalletType.ACTIVE)) {
@@ -204,7 +202,7 @@ class HibernateWalletStorageTest {
         try (Session session = sessionFactory.openSession()) {
             session.beginTransaction();
             WalletEntity walletEntity = new WalletEntity(wallet, WalletType.DEAD);
-            session.save(walletEntity);
+            session.persist(walletEntity);
             session.getTransaction().commit();
         }
         try (HibernateWalletStorage walletStorage = getHibernateWalletStorage(WalletType.ACTIVE)) {

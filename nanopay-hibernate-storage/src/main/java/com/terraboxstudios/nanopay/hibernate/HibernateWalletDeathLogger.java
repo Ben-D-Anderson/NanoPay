@@ -5,14 +5,14 @@ import com.terraboxstudios.nanopay.death.RangeSearchable;
 import com.terraboxstudios.nanopay.death.WalletDeathLogger;
 import com.terraboxstudios.nanopay.hibernate.entity.DeadWalletEntity;
 import com.terraboxstudios.nanopay.wallet.DeadWallet;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Root;
 import org.hibernate.HibernateException;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
 import org.hibernate.query.Query;
 
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.Root;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Comparator;
@@ -36,7 +36,7 @@ public class HibernateWalletDeathLogger extends DatabaseAccessor implements Wall
         createRunnable(session -> {
             session.beginTransaction();
             try {
-                session.save(new DeadWalletEntity(deadWallet));
+                session.persist(new DeadWalletEntity(deadWallet));
             } catch (HibernateException e) {
                 NanoPay.LOGGER.error("Hibernate error occurred when saving dead wallet '" + deadWallet.address() + "'.", e);
             }

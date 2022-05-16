@@ -1,18 +1,19 @@
 package com.terraboxstudios.nanopay.hibernate.entity;
 
 import com.terraboxstudios.nanopay.wallet.DeadWallet;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
 import lombok.*;
+import org.hibernate.Hibernate;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Id;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Objects;
 
 @Getter
 @Setter
 @Entity
-@EqualsAndHashCode
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class DeadWalletEntity {
@@ -42,4 +43,16 @@ public class DeadWalletEntity {
         return new DeadWallet(address, privateKey, deathTime, requiredAmount, success);
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) return false;
+        DeadWalletEntity that = (DeadWalletEntity) o;
+        return address != null && Objects.equals(address, that.address);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
 }

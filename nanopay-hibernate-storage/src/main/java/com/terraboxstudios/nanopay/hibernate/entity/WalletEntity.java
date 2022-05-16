@@ -2,17 +2,18 @@ package com.terraboxstudios.nanopay.hibernate.entity;
 
 import com.terraboxstudios.nanopay.storage.WalletType;
 import com.terraboxstudios.nanopay.wallet.Wallet;
+import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.Hibernate;
 
-import javax.persistence.*;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Objects;
 
 @Getter
 @Setter
 @Entity
-@EqualsAndHashCode
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class WalletEntity {
@@ -52,4 +53,16 @@ public class WalletEntity {
         return new Wallet(walletEntityId.getAddress(), privateKey, creationTime, requiredAmount);
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) return false;
+        WalletEntity that = (WalletEntity) o;
+        return walletEntityId != null && Objects.equals(walletEntityId, that.walletEntityId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(walletEntityId);
+    }
 }

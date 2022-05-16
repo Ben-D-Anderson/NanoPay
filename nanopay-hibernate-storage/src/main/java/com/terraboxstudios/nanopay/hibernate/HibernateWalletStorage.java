@@ -10,9 +10,9 @@ import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
 import org.hibernate.query.Query;
 
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.Root;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Root;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.Callable;
@@ -73,7 +73,7 @@ public class HibernateWalletStorage extends DatabaseAccessor implements WalletSt
         Runnable saveRunnable = createRunnable(session -> {
             session.beginTransaction();
             try {
-                session.save(new WalletEntity(wallet, walletType));
+                session.persist(new WalletEntity(wallet, walletType));
             } catch (HibernateException e) {
                 NanoPay.LOGGER.error("Hibernate error occurred when saving wallet '" + wallet.address() + "'.", e);
             }
@@ -87,7 +87,7 @@ public class HibernateWalletStorage extends DatabaseAccessor implements WalletSt
         Runnable deleteRunnable = createRunnable(session -> {
             session.beginTransaction();
             try {
-                session.delete(new WalletEntity(wallet, walletType));
+                session.remove(new WalletEntity(wallet, walletType));
             } catch (HibernateException e) {
                 NanoPay.LOGGER.error("Hibernate error occurred when deleting wallet '" + wallet.address() + "'.", e);
             }

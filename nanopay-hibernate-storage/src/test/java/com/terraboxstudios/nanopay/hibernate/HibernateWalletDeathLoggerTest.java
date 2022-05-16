@@ -18,7 +18,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
-import java.util.logging.Level;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -30,7 +29,6 @@ class HibernateWalletDeathLoggerTest {
 
     @BeforeEach
     void setupDatabase() {
-        java.util.logging.Logger.getLogger("org.hibernate").setLevel(Level.SEVERE);
         clock = Clock.fixed(Instant.now(), ZoneId.systemDefault());
         Configuration configuration = new Configuration()
                 .addAnnotatedClass(DeadWalletEntity.class)
@@ -92,11 +90,11 @@ class HibernateWalletDeathLoggerTest {
         //insert dead wallets into database
         try (Session session = sessionFactory.openSession()) {
             session.beginTransaction();
-            session.save(new DeadWalletEntity(deadWalletOne));
-            session.save(new DeadWalletEntity(deadWalletTwo));
-            session.save(new DeadWalletEntity(deadWalletThree));
-            session.save(new DeadWalletEntity(deadWalletFour));
-            session.save(new DeadWalletEntity(deadWalletFive));
+            session.persist(new DeadWalletEntity(deadWalletOne));
+            session.persist(new DeadWalletEntity(deadWalletTwo));
+            session.persist(new DeadWalletEntity(deadWalletThree));
+            session.persist(new DeadWalletEntity(deadWalletFour));
+            session.persist(new DeadWalletEntity(deadWalletFive));
             session.getTransaction().commit();
         }
         //check wallets retrieved by range are correct
