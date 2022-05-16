@@ -24,15 +24,15 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+@Getter
 public class NanoPayConfiguration {
 
-    @Getter
     private final Properties properties;
     private final String configFileName = "nanopay.properties";
     private final Path configFile;
 
-    public NanoPayConfiguration() {
-        configFile = Paths.get(System.getProperty("user.dir")).resolve(configFileName);
+    public NanoPayConfiguration(Path configFolder) {
+        configFile = configFolder.resolve(configFileName);
         Properties internalProperties = new Properties();
         loadInternalProperties(internalProperties);
         this.properties = new Properties(internalProperties);
@@ -135,7 +135,7 @@ public class NanoPayConfiguration {
         return builder.build();
     }
 
-    private Optional<WalletDeathLogger> parseWalletDeathLogger() {
+    Optional<WalletDeathLogger> parseWalletDeathLogger() {
         String prefix = "nanopay.deathlog.";
         String type = getString(prefix + "type");
         if (type == null)
@@ -144,14 +144,15 @@ public class NanoPayConfiguration {
             return Optional.empty();
         String url = getString(prefix + "url");
         String driver = getString(prefix + "driver");
+        String hbm2ddl = getString(prefix + "hbm2ddl");
         Configuration configuration = new Configuration()
                 .setProperty("hibernate.connection.url", url)
                 .setProperty("hibernate.connection.driver_class", driver)
-                .setProperty("hibernate.hbm2ddl.auto", "create-only");
+                .setProperty("hibernate.hbm2ddl.auto", hbm2ddl);
         return Optional.of(new HibernateWalletDeathLogger(configuration));
     }
 
-    private Optional<WalletStorage> parseWalletStorage(WalletType walletType) {
+    Optional<WalletStorage> parseWalletStorage(WalletType walletType) {
         String prefix = "nanopay.storage." + walletType.toString().toLowerCase() + ".";
         String type = getString(prefix + "type");
         if (type == null)
@@ -165,10 +166,11 @@ public class NanoPayConfiguration {
             case "hibernate":
                 String url = getString(prefix + "url");
                 String driver = getString(prefix + "driver");
+                String hbm2ddl = getString(prefix + "hbm2ddl");
                 Configuration configuration = new Configuration()
                         .setProperty("hibernate.connection.url", url)
                         .setProperty("hibernate.connection.driver_class", driver)
-                        .setProperty("hibernate.hbm2ddl.auto", "create-only");
+                        .setProperty("hibernate.hbm2ddl.auto", hbm2ddl);
                 walletStorage = new HibernateWalletStorage(walletType, duration, configuration);
                 break;
             case "memory":

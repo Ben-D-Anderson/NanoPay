@@ -11,6 +11,7 @@ import io.javalin.websocket.WsContext;
 import uk.oczadly.karl.jnano.model.NanoAccount;
 
 import java.math.BigDecimal;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.HashSet;
@@ -41,7 +42,7 @@ public class NanoPayAPI {
     }
 
     private NanoPayAPI() {
-        this.config = new NanoPayConfiguration();
+        this.config = new NanoPayConfiguration(Paths.get(System.getProperty("user.dir")));
         this.nanoPay = this.config.createNanoPay(this::onPaymentSuccess, this::onPaymentFailure);
         this.javalin = Javalin.create();
         this.gson = new Gson();
