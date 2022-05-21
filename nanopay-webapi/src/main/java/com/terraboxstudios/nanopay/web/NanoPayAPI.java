@@ -71,7 +71,7 @@ public class NanoPayAPI {
     }
 
     private void start() {
-        javalin.start(config.getString("api.address"), config.getInt("api.port"));
+        javalin.start(config.getRequiredString("api.address"), config.getRequiredInt("api.port"));
     }
 
     private void applyHandlers() {
@@ -95,27 +95,29 @@ public class NanoPayAPI {
 
     private void applyEventsWebsocketHandler() {
         javalin.ws("/events", wsConfig -> {
-            if (config.getBoolean("api.require_auth_key")) {
+            if (config.getBoolean("api.require_auth_key", false)) {
                 wsConfig.onMessage(ctx -> {
-                    if (ctx.message().equals(config.getString("api.auth_key"))) {
+                    final String authKey = config.getRequiredString("api.auth_key");
+                    if (ctx.message().equals(authKey)) {
                         websocketClients.add(ctx);
                     }
                 });
             } else {
                 wsConfig.onConnect(websocketClients::add);
-                wsConfig.onConnect(wsCtx -> websocketClients.removeIf(ctx -> !ctx.session.isOpen()));
             }
+            wsConfig.onConnect(wsCtx -> websocketClients.removeIf(ctx -> !ctx.session.isOpen()));
         });
     }
 
     private void applyAuthKeyRequirementHandler() {
-        if (config.getBoolean("api.require_auth_key")) {
+        if (config.getBoolean("api.require_auth_key", false)) {
+            final String requiredAuthKey = config.getRequiredString("api.auth_key");
             javalin.before(ctx -> {
-                String authKey = ctx.queryParam("auth_key");
-                if (authKey == null || authKey.isEmpty()) {
+                String foundAuthKey = ctx.queryParam("auth_key");
+                if (foundAuthKey == null || foundAuthKey.isEmpty()) {
                     ctx.status(HttpCode.FORBIDDEN).json(new JsonResponse(false, "parameter 'auth_key' must be set"));
-                } else if (!authKey.equals(config.getString("api.auth_key"))) {
-                    ctx.status(HttpCode.FORBIDDEN).json(new JsonResponse(false, "provided 'auth_key' is invalid"));
+                } else if (!foundAuthKey.equals(requiredAuthKey)) {
+                    ctx.status(HttpCode.FORBIDDEN).json(new JsonResponse(false, "parameter 'auth_key' is invalid"));
                 }
             });
         }

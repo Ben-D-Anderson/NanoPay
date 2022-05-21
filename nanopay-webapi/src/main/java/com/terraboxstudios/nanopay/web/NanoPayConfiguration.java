@@ -17,11 +17,14 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalUnit;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 @Getter
@@ -72,60 +75,57 @@ public class NanoPayConfiguration {
         return true;
     }
 
-    public String getString(String key) {
+    public Optional<String> getString(String key) {
         String env = System.getenv(key);
         if (env == null || env.strip().length() == 0)
-            return this.properties.getProperty(key);
-        return env;
+            return Optional.ofNullable(this.properties.getProperty(key));
+        return Optional.of(env);
     }
 
-    public int getInt(String key) {
-        return Integer.parseInt(getString(key));
+    public String getRequiredString(String key) {
+        return getString(key).orElseThrow(() -> new NoSuchElementException("'" + key + "' cannot be empty"));
     }
 
-    public boolean getBoolean(String key) {
-        return Boolean.parseBoolean(getString(key));
+    public Optional<Integer> getInt(String key) {
+        AtomicInteger valInt = new AtomicInteger();
+        try {
+            getString(key).ifPresent(val -> valInt.set(Integer.parseInt(val)));
+        } catch (NumberFormatException ignored) {}
+        return Optional.of(valInt.get());
+    }
+
+    public int getRequiredInt(String key) {
+        return getInt(key).orElseThrow(() -> new NoSuchElementException("'" + key + "' must be an integer"));
+    }
+
+    public boolean getBoolean(String key, boolean defaultValue) {
+        AtomicBoolean valBool = new AtomicBoolean(defaultValue);
+        getString(key).ifPresent(val -> valBool.set(Boolean.parseBoolean(val)));
+        return valBool.get();
     }
     
     public NanoPay createNanoPay(Consumer<String> paymentSuccessListener, Consumer<String> paymentFailureListener) {
-        NanoPay.Builder builder = new NanoPay.Builder(getString("nanopay.storage_wallet"),
+        NanoPay.Builder builder = new NanoPay.Builder(getRequiredString("nanopay.storage_wallet"),
                 paymentSuccessListener, paymentFailureListener);
         //representative
-        if (getString("nanopay.representative_wallet") != null)
-            builder.setRepresentativeWallet(getString("nanopay.representative_wallet"));
-        //rpc
-        if (getString("nanopay.rpc_address") != null)
-            builder.setRpcAddress(getString("nanopay.rpc_address"));
+        builder.setRepresentativeWallet(getRequiredString("nanopay.representative_wallet"));
+        //rpc address
+        builder.setRpcAddress(getRequiredString("nanopay.rpc_address"));
         //websocket
-        if (getString("nanopay.websocket_address") != null)
-            builder.setWebSocketAddress(getString("nanopay.websocket_address"));
+        builder.setWebSocketAddress(getRequiredString("nanopay.websocket_address"));
         //disable websocket reconnect
-        if (getBoolean("nanopay.disable_websocket_reconnect"))
+        if (getBoolean("nanopay.disable_websocket_reconnect", false))
             builder.disableWebSocketReconnect();
         //disable wallet prune service
-        if (getBoolean("nanopay.disable_wallet_prune_service"))
+        if (getBoolean("nanopay.disable_wallet_prune_service", false))
             builder.disableWalletPruneService();
         //disable wallet refund service
-        if (getBoolean("nanopay.disable_wallet_refund_service"))
+        if (getBoolean("nanopay.disable_wallet_refund_service", false))
             builder.disableRefundService();
         //wallet prune delay
-        if (getString("nanopay.delay.wallet_prune.initial_amount") != null
-                && getString("nanopay.delay.wallet_prune.reoccurring_amount") != null
-                && getString("nanopay.delay.wallet_prune.unit") != null) {
-            int initialDelayAmount = getInt("nanopay.delay.wallet_prune.initial_amount");
-            int reoccurringDelayAmount = getInt("nanopay.delay.wallet_prune.reoccurring_amount");
-            TimeUnit delayUnit = TimeUnit.valueOf(getString("nanopay.delay.wallet_prune.unit").toUpperCase());
-            builder.setWalletPruneDelay(initialDelayAmount, reoccurringDelayAmount, delayUnit);
-        }
+        builder.setWalletPruneDelay(parseRepeatingDelay("nanopay.delay.wallet_prune."));
         //wallet refund delay
-        if (getString("nanopay.delay.wallet_refund.initial_amount") != null
-                && getString("nanopay.delay.wallet_refund.reoccurring_amount") != null
-                && getString("nanopay.delay.wallet_refund.unit") != null) {
-            int initialDelayAmount = getInt("nanopay.delay.wallet_refund.initial_amount");
-            int reoccurringDelayAmount = getInt("nanopay.delay.wallet_refund.reoccurring_amount");
-            TimeUnit delayUnit = TimeUnit.valueOf(getString("nanopay.delay.wallet_refund.unit").toUpperCase());
-            builder.setWalletRefundDelay(initialDelayAmount, reoccurringDelayAmount, delayUnit);
-        }
+        builder.setWalletRefundDelay(parseRepeatingDelay("nanopay.delay.wallet_refund."));
         //wallet storages
         WalletStorage activeStorage = parseWalletStorage(WalletType.ACTIVE)
                 .orElse(new MemoryWalletStorage(Duration.ofMinutes(30)));
@@ -138,43 +138,48 @@ public class NanoPayConfiguration {
         return builder.build();
     }
 
-    Optional<WalletDeathLogger> parseWalletDeathLogger() {
-        String prefix = "nanopay.deathlog.";
-        String type = getString(prefix + "type");
-        if (type == null)
-            return Optional.empty();
-        if (!type.equalsIgnoreCase("database") && !type.equalsIgnoreCase("hibernate"))
-            return Optional.empty();
-        String url = getString(prefix + "url");
-        String driver = getString(prefix + "driver");
-        String hbm2ddl = getString(prefix + "hbm2ddl");
-        Configuration configuration = new Configuration()
+    NanoPay.RepeatingDelay parseRepeatingDelay(String prefix) {
+        int initialDelayAmount = getRequiredInt(prefix + "initial_amount");
+        int repeatingDelayAmount = getRequiredInt(prefix + "repeating_amount");
+        TimeUnit delayUnit = TimeUnit.valueOf(getRequiredString(prefix + "unit"));
+        return new NanoPay.RepeatingDelay(initialDelayAmount, repeatingDelayAmount, delayUnit);
+    }
+
+    Configuration parseDatabase(String prefix) {
+        String url = getRequiredString(prefix + "url");
+        String driver = getRequiredString(prefix + "driver");
+        String hbm2ddl = getRequiredString(prefix + "hbm2ddl");
+        return new Configuration()
                 .setProperty("hibernate.connection.url", url)
                 .setProperty("hibernate.connection.driver_class", driver)
                 .setProperty("hibernate.hbm2ddl.auto", hbm2ddl);
-        return Optional.of(new HibernateWalletDeathLogger(configuration));
+    }
+
+    Optional<WalletDeathLogger> parseWalletDeathLogger() {
+        String prefix = "nanopay.deathlog.";
+        Optional<String> typeOptional = getString(prefix + "type");
+        if (typeOptional.isEmpty())
+            return Optional.empty();
+        String type = typeOptional.get();
+        if (!type.equalsIgnoreCase("database") && !type.equalsIgnoreCase("hibernate"))
+            return Optional.empty();
+        return Optional.of(new HibernateWalletDeathLogger(parseDatabase(prefix)));
     }
 
     Optional<WalletStorage> parseWalletStorage(WalletType walletType) {
         String prefix = "nanopay.storage." + walletType.toString().toLowerCase() + ".";
-        String type = getString(prefix + "type");
-        if (type == null)
+        Optional<String> typeOptional = getString(prefix + "type");
+        if (typeOptional.isEmpty())
             return Optional.empty();
-        long durationAmount = getInt(prefix + "duration.amount");
-        TemporalUnit durationUnit = ChronoUnit.valueOf(getString(prefix + "duration.unit").toUpperCase());
+        String type = typeOptional.get();
+        long durationAmount = getRequiredInt(prefix + "duration.amount");
+        TemporalUnit durationUnit = ChronoUnit.valueOf(getRequiredString(prefix + "duration.unit").toUpperCase());
         Duration duration = Duration.of(durationAmount, durationUnit);
         WalletStorage walletStorage = null;
         switch (type.toLowerCase()) {
             case "database":
             case "hibernate":
-                String url = getString(prefix + "url");
-                String driver = getString(prefix + "driver");
-                String hbm2ddl = getString(prefix + "hbm2ddl");
-                Configuration configuration = new Configuration()
-                        .setProperty("hibernate.connection.url", url)
-                        .setProperty("hibernate.connection.driver_class", driver)
-                        .setProperty("hibernate.hbm2ddl.auto", hbm2ddl);
-                walletStorage = new HibernateWalletStorage(walletType, duration, configuration);
+                walletStorage = new HibernateWalletStorage(walletType, duration, parseDatabase(prefix));
                 break;
             case "memory":
                 walletStorage = new MemoryWalletStorage(duration);
@@ -183,7 +188,7 @@ public class NanoPayConfiguration {
             case "singlefile":
             case "single_file":
                 try {
-                    walletStorage = new SingleFileWalletStorage(Paths.get(getString(prefix + "path")), duration);
+                    walletStorage = new SingleFileWalletStorage(Paths.get(getRequiredString(prefix + "path")), duration);
                 } catch (IOException e) {
                     NanoPay.LOGGER.error("Failed to create SingleFileWalletStorage", e);
                 }
@@ -191,10 +196,11 @@ public class NanoPayConfiguration {
             case "files":
             case "multifile":
             case "multi_file":
+            case "multiple_file":
             case "multiplefiles":
             case "multiple_files":
                 try {
-                    walletStorage = new MultipleFileWalletStorage(Paths.get(getString(prefix + "path")), duration);
+                    walletStorage = new MultipleFileWalletStorage(Paths.get(getRequiredString(prefix + "path")), duration);
                 } catch (IOException e) {
                     NanoPay.LOGGER.error("Failed to create MultipleFileWalletStorage", e);
                 }
@@ -202,9 +208,9 @@ public class NanoPayConfiguration {
             default:
                 break;
         }
-        if (walletStorage != null && getBoolean(prefix + "cache"))
+        if (walletStorage != null && getBoolean(prefix + "cache", false))
             walletStorage = new CacheWrappedWalletStorage(walletStorage, Executors.newSingleThreadExecutor(),
-                    CacheWrappedWalletStorage.CacheSearchPolicy.valueOf(getString(prefix + "cache.policy").toUpperCase()));
+                    CacheWrappedWalletStorage.CacheSearchPolicy.valueOf(getRequiredString(prefix + "cache.policy").toUpperCase()));
         return Optional.ofNullable(walletStorage);
     }
 

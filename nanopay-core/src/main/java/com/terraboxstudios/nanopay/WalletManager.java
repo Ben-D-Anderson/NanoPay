@@ -24,7 +24,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 final class WalletManager {
 
@@ -69,20 +68,14 @@ final class WalletManager {
         return wallet.address();
     }
 
-    void startWalletPruneService(ScheduledExecutorService walletPruneService,
-                                 long walletPruneInitialDelay,
-                                 long walletPruneDelay,
-                                 TimeUnit walletPruneDelayTimeUnit) {
-        walletPruneService.scheduleWithFixedDelay(this::pruneWallets,
-                walletPruneInitialDelay, walletPruneDelay, walletPruneDelayTimeUnit);
+    void startWalletPruneService(ScheduledExecutorService walletPruneService, NanoPay.RepeatingDelay walletPruneDelay) {
+        walletPruneService.scheduleWithFixedDelay(this::pruneWallets, walletPruneDelay.initialDelayAmount(),
+                walletPruneDelay.repeatingDelayAmount(), walletPruneDelay.delayUnit());
     }
 
-    void startWalletRefundService(ScheduledExecutorService refundDeadWalletService,
-                                  long walletRefundInitialDelay,
-                                  long walletRefundDelay,
-                                  TimeUnit walletRefundDelayTimeUnit) {
-        refundDeadWalletService.scheduleWithFixedDelay(this::refundDeadWallets,
-                walletRefundInitialDelay, walletRefundDelay, walletRefundDelayTimeUnit);
+    void startWalletRefundService(ScheduledExecutorService refundDeadWalletService, NanoPay.RepeatingDelay walletPruneDelay) {
+        refundDeadWalletService.scheduleWithFixedDelay(this::refundDeadWallets, walletPruneDelay.initialDelayAmount(),
+                walletPruneDelay.repeatingDelayAmount(), walletPruneDelay.delayUnit());
     }
 
     void loadWallets() {

@@ -61,15 +61,9 @@ public final class NanoPay {
         );
         walletManager.loadWallets();
         if (builder.walletPruneServiceEnabled)
-            walletManager.startWalletPruneService(builder.walletPruneService,
-                    builder.walletPruneInitialDelay,
-                    builder.walletPruneDelay,
-                    builder.walletPruneDelayTimeUnit);
+            walletManager.startWalletPruneService(builder.walletPruneService, builder.walletPruneDelay);
         if (builder.refundServiceEnabled)
-            walletManager.startWalletRefundService(builder.refundWalletService,
-                    builder.walletRefundInitialDelay,
-                    builder.walletRefundDelay,
-                    builder.walletRefundDelayTimeUnit);
+            walletManager.startWalletRefundService(builder.refundWalletService, builder.walletRefundDelay);
 
         webSocketListener.connectWebSocket(transaction -> {
             NanoPay.LOGGER.debug("Listened to transaction: " + transaction);
@@ -169,6 +163,8 @@ public final class NanoPay {
         }
     }
 
+    public record RepeatingDelay(int initialDelayAmount, int repeatingDelayAmount, TimeUnit delayUnit) {}
+
     /**
      * Builder class used to construct a NanoPay object
      */
@@ -185,8 +181,8 @@ public final class NanoPay {
         private WalletStorageProvider walletStorageProvider;
         private ScheduledExecutorService walletPruneService, refundWalletService;
         private boolean webSocketReconnect = true, walletPruneServiceEnabled = true, refundServiceEnabled = true;
-        private long walletPruneInitialDelay = 1, walletPruneDelay = 1, walletRefundInitialDelay = 5, walletRefundDelay = 5;
-        private TimeUnit walletPruneDelayTimeUnit = TimeUnit.MINUTES, walletRefundDelayTimeUnit = TimeUnit.MINUTES;
+        private RepeatingDelay walletRefundDelay = new RepeatingDelay(1, 1, TimeUnit.MINUTES);
+        private RepeatingDelay walletPruneDelay = new RepeatingDelay(5, 5, TimeUnit.MINUTES);
         private Clock clock = Clock.systemDefaultZone();
 
         /**
@@ -282,21 +278,13 @@ public final class NanoPay {
             return this;
         }
 
-        public Builder setWalletPruneDelay(long walletPruneInitialDelay,
-                                           long walletPruneDelay,
-                                           TimeUnit walletPruneDelayTimeUnit) {
-            this.walletPruneDelay = walletPruneDelay;
-            this.walletPruneInitialDelay = walletPruneInitialDelay;
-            this.walletPruneDelayTimeUnit = walletPruneDelayTimeUnit;
+        public Builder setWalletPruneDelay(RepeatingDelay repeatingDelay) {
+            this.walletPruneDelay = repeatingDelay;
             return this;
         }
 
-        public Builder setWalletRefundDelay(long walletRefundInitialDelay,
-                                            long walletRefundDelay,
-                                            TimeUnit walletRefundDelayTimeUnit) {
-            this.walletRefundDelay = walletRefundDelay;
-            this.walletRefundInitialDelay = walletRefundInitialDelay;
-            this.walletRefundDelayTimeUnit = walletRefundDelayTimeUnit;
+        public Builder setWalletRefundDelay(RepeatingDelay repeatingDelay) {
+            this.walletRefundDelay = repeatingDelay;
             return this;
         }
 
