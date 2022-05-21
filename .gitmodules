@@ -1,4 +1,4 @@
 [submodule "jNano"]
 	path = jNano
-	url = https://github.com/Ben-D-Anderson/jNano
+	url = https://github.com/koczadly/jNano
 	branch = dev
