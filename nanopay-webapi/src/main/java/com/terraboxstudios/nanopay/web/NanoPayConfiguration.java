@@ -73,7 +73,10 @@ public class NanoPayConfiguration {
     }
 
     public String getString(String key) {
-        return this.properties.getProperty(key);
+        String env = System.getenv(key);
+        if (env == null || env.strip().length() == 0)
+            return this.properties.getProperty(key);
+        return env;
     }
 
     public int getInt(String key) {
