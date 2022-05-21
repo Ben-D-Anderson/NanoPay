@@ -1,6 +1,7 @@
 package com.terraboxstudios.nanopay.storage;
 
 import com.terraboxstudios.nanopay.wallet.Wallet;
+import lombok.Getter;
 
 import java.time.Duration;
 import java.util.Collection;
@@ -22,6 +23,7 @@ public class CacheWrappedWalletStorage implements WalletStorage {
     private final WalletStorage cache;
     private final WalletStorage backingStorage;
     private final ExecutorService backingOperationService;
+    @Getter
     private final CacheSearchPolicy cachePolicy;
 
     public CacheWrappedWalletStorage(WalletStorage backingStorage, ExecutorService backingOperationService) {

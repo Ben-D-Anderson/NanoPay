@@ -21,7 +21,7 @@ import static io.javalin.apibuilder.ApiBuilder.*;
 
 public class NanoPayAPI {
 
-    private final NanoPayConfiguration config;
+    private final Configuration config;
     private final NanoPay nanoPay;
     private final Javalin javalin;
     private final Gson gson;
@@ -42,8 +42,9 @@ public class NanoPayAPI {
     }
 
     private NanoPayAPI() {
-        this.config = new NanoPayConfiguration(Paths.get(System.getProperty("user.dir")));
-        this.nanoPay = this.config.createNanoPay(this::onPaymentSuccess, this::onPaymentFailure);
+        this.config = new Configuration(Paths.get(System.getProperty("user.dir")));
+        this.nanoPay = new ConfigurationParser(this.config)
+                .createNanoPay(this::onPaymentSuccess, this::onPaymentFailure);
         this.javalin = Javalin.create();
         this.gson = new Gson();
         JavalinValidation.register(NanoAccount.class, NanoAccount::parseAddress);
