@@ -24,7 +24,7 @@ public class NanoPayAPI {
     private final Configuration config;
     private final NanoPay nanoPay;
     private final Javalin javalin;
-    private final Gson gson;
+    private final GsonJsonMapper gsonJsonWrapper;
     private final Set<WsContext> websocketClients = Collections.synchronizedSet(new HashSet<>());
 
     public record JsonResponse(boolean success, String message) {
@@ -45,9 +45,10 @@ public class NanoPayAPI {
         this.config = new Configuration(Paths.get(System.getProperty("user.dir")));
         this.nanoPay = new ConfigurationParser(this.config)
                 .createNanoPay(this::onPaymentSuccess, this::onPaymentFailure);
-        this.javalin = Javalin.create();
-        this.gson = new Gson();
+        this.gsonJsonWrapper = new GsonJsonMapper(new Gson());
+        this.javalin = Javalin.create(cfg -> cfg.jsonMapper(this.gsonJsonWrapper));
         JavalinValidation.register(NanoAccount.class, NanoAccount::parseAddress);
+        JavalinValidation.register(BigDecimal.class, BigDecimal::new);
         JavalinValidation.register(Instant.class, s -> Instant.ofEpochMilli(Long.parseLong(s)));
     }
 
@@ -60,11 +61,11 @@ public class NanoPayAPI {
     }
 
     private void onPaymentSuccess(String walletAddress) {
-        broadcastWebsocketMessage(gson.toJson(PaymentResult.success(walletAddress)));
+        broadcastWebsocketMessage(gsonJsonWrapper.toJsonString(PaymentResult.success(walletAddress)));
     }
 
     private void onPaymentFailure(String walletAddress) {
-        broadcastWebsocketMessage(gson.toJson(PaymentResult.failure(walletAddress)));
+        broadcastWebsocketMessage(gsonJsonWrapper.toJsonString(PaymentResult.failure(walletAddress)));
     }
 
     private void broadcastWebsocketMessage(String message) {
