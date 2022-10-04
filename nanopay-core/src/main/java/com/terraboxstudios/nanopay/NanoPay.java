@@ -59,11 +59,12 @@ public final class NanoPay {
                 builder.representativeWallet,
                 builder.clock
         );
-        walletManager.loadWallets();
-        if (builder.walletPruneServiceEnabled)
+        if (builder.walletPruneServiceEnabled) {
             walletManager.startWalletPruneService(builder.walletPruneService, builder.walletPruneDelay);
-        if (builder.refundServiceEnabled)
+        }
+        if (builder.refundServiceEnabled) {
             walletManager.startWalletRefundService(builder.refundWalletService, builder.walletRefundDelay);
+        }
 
         webSocketListener.connectWebSocket(transaction -> {
             NanoPay.LOGGER.debug("Listened to transaction: " + transaction);
@@ -76,6 +77,7 @@ public final class NanoPay {
                 NanoPay.LOGGER.error("Exception occurred checking wallet (" + transaction.receiver().toAddress() + ")", e);
             }
         });
+        walletManager.loadWallets();
     }
 
     /**
