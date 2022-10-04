@@ -12,7 +12,7 @@ is recommended that you connect NanoPay to your own NANO node to increase servic
 
 ### Prerequisites
 
-In order to build this project, you are required to have & use the following tools:
+In order to build this project, you are required to have and use the following tools:
 - Git
 - JDK 16
 - Apache Maven
@@ -38,7 +38,8 @@ $ java -jar nanopay-webapi/target/nanopay-webapi-{VERSION}.jar
 ## NanoPay as a library
 
 The `nanopay-core` module contains the main backbone of the NanoPay payment processor - everything from wallet management
-to blockchain interactions. This is ideal if you are a developer wanting to use the payment processor without the REST API.
+to blockchain interactions. This is ideal if you are a developer wanting to use the payment processor through pure Java,
+without the REST API.
 
 ### Brief Codebase Overview
 
@@ -78,5 +79,5 @@ module as a dependency to your project:
     <scope>compile</scope>
 </dependency>
 ```
-This will provide access to the classes `HibernateWalletStorage` and `HibernateWalletDeathLogger`. Don't forget
-to compile the dependencies for your database driver 
+This will provide access to the classes `HibernateWalletStorage` and `HibernateWalletDeathLogger`. Don't forget, you
+will still need to add the dependency for your chosen database's driver into your project too.
