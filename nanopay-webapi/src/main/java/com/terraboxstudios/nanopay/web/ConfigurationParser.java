@@ -62,7 +62,7 @@ public class ConfigurationParser {
     NanoPay.RepeatingDelay parseRepeatingDelay(String prefix) {
         int initialDelayAmount = configuration.getRequiredInt(prefix + "initial_amount");
         int repeatingDelayAmount = configuration.getRequiredInt(prefix + "repeating_amount");
-        TimeUnit delayUnit = TimeUnit.valueOf(configuration.getRequiredString(prefix + "unit"));
+        TimeUnit delayUnit = TimeUnit.valueOf(configuration.getRequiredString(prefix + "unit").toUpperCase());
         return new NanoPay.RepeatingDelay(initialDelayAmount, repeatingDelayAmount, delayUnit);
     }
 
