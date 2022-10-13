@@ -1,6 +1,6 @@
 # NanoPay
 
-**Warning: This project is immature and may not function 100% correctly. There is also a lack of documentation.**
+**Warning: This project is a work-in-progress and may not function 100% correctly. There is also a lack of documentation.**
 
 A self-hostable payment processor for the [NANO cryptocurrency](https://www.nano.org). This project uses the standard
 concept of 'payments' to abstract away the blockchain and function as a simple, high-level payment processor.
