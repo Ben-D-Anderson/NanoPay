@@ -90,7 +90,7 @@ public final class NanoPay {
      * @throws IllegalArgumentException if the amount requested is zero.
      */
     public String requestPayment(BigDecimal amount) {
-        if (amount.equals(BigDecimal.ZERO)) throw new IllegalArgumentException("Required amount cannot be zero");
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) throw new IllegalArgumentException("Required amount cannot be zero");
         return walletManager.requestPayment(amount);
     }
 
